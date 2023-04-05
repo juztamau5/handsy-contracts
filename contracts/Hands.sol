@@ -18,7 +18,7 @@ contract Hands {
         Moves movePlayerB;
     }
 
-    uint private nextGameId;
+    uint private lastGameId;
     mapping(uint => uint) private firstReveal;
     mapping(uint => Game) private games;
     mapping(address => uint) public playerGame;
@@ -36,44 +36,40 @@ contract Hands {
         _;
     }
 
-    function register(bytes32 encrMove) public payable validBet returns (uint) {
-        uint gameId = playerGame[msg.sender];
-        require(gameId == 0, "Player already registered");
-
-        gameId = nextGameId;
-        nextGameId++;
-
-        games[gameId].playerA = payable(msg.sender);
-        games[gameId].bet = msg.value;
-        games[gameId].encrMovePlayerA = encrMove;
-        playerGame[msg.sender] = gameId;
-
-        emit PlayerRegistered(gameId, msg.sender);
-
-        _matchPlayers(gameId);
-
-        return gameId;
+    function _generateGameId() private returns (uint) {
+        lastGameId += 1;
+        return lastGameId;
     }
 
-    function _matchPlayers(uint gameId) private {
-        uint bet = games[gameId].bet;
+    function register(bytes32 encrMove) public payable validBet returns (uint) {
+        uint bet = msg.value;
+        uint gameId;
 
-        // If there is a player waiting for the same bet amount, match them
         if (waitingPlayers[bet] != 0) {
-            uint opponentGameId = waitingPlayers[bet];
+            gameId = waitingPlayers[bet];
             waitingPlayers[bet] = 0;
-
-            games[gameId].playerB = games[opponentGameId].playerA;
-            games[gameId].encrMovePlayerB = games[opponentGameId].encrMovePlayerA;
-            playerGame[games[opponentGameId].playerA] = gameId;
-
-            delete games[opponentGameId];
-
+            games[gameId].playerB = payable(msg.sender);
+            games[gameId].encrMovePlayerB = encrMove;
+            playerGame[msg.sender] = gameId;
             emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
         } else {
+            gameId = _generateGameId();
+            games[gameId] = Game({
+                playerA: payable(msg.sender),
+                playerB: payable(address(0)),
+                bet: bet,
+                encrMovePlayerA: encrMove,
+                encrMovePlayerB: 0x0,
+                movePlayerA: Moves.None,
+                movePlayerB: Moves.None
+            });
+            playerGame[msg.sender] = gameId;
             waitingPlayers[bet] = gameId;
             emit PlayerWaiting(gameId, bet);
         }
+
+        emit PlayerRegistered(gameId, msg.sender);
+        return gameId;
     }
 
     modifier isRegistered(uint gameId) {
