@@ -154,14 +154,20 @@ contract Hands {
     function _payWinners(uint gameId, Outcomes outcome) private {
         uint total = games[gameId].bet * 2;
         if (outcome == Outcomes.PlayerA) {
-            games[gameId].playerA.transfer(total);
+            // Use call to avoid reentrancy and gas issues
+            (bool success, ) = games[gameId].playerA.call{value: total}("");
+            require(success, "Transfer to PlayerA failed");
         } else if (outcome == Outcomes.PlayerB) {
-            games[gameId].playerB.transfer(total);
+            (bool success, ) = games[gameId].playerB.call{value: total}("");
+            require(success, "Transfer to PlayerB failed");
         } else { // Draw
-            games[gameId].playerA.transfer(games[gameId].bet);
-            games[gameId].playerB.transfer(games[gameId].bet);
+            (bool successA, ) = games[gameId].playerA.call{value: games[gameId].bet}("");
+            require(successA, "Transfer to PlayerA failed");
+            (bool successB, ) = games[gameId].playerB.call{value: games[gameId].bet}("");
+            require(successB, "Transfer to PlayerB failed");
         }
     }
+
 
     function _resetGame(uint gameId) private {
         delete playerGame[games[gameId].playerA];
