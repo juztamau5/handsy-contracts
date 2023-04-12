@@ -36,12 +36,17 @@ contract Hands {
         _;
     }
 
+    modifier isNotAlreadyInGame() {
+        require(playerGame[msg.sender] == 0, "Player already in game");
+        _;
+    }
+
     function _generateGameId() private returns (uint) {
         lastGameId += 1;
         return lastGameId;
     }
 
-    function register(bytes32 encrMove) public payable validBet returns (uint) {
+    function register(bytes32 encrMove) public payable validBet isNotAlreadyInGame returns (uint) {
         uint bet = msg.value;
         uint gameId;
 
@@ -105,6 +110,11 @@ contract Hands {
             firstReveal[gameId] = block.timestamp;
         }
 
+        //call getOutcome if both players have revealed their moves
+        if (game.movePlayerA != Moves.None && game.movePlayerB != Moves.None) {
+            _getOutcome(gameId);
+        }
+
         return move;
     }
 
@@ -128,7 +138,7 @@ contract Hands {
         _;
     }
 
-    function getOutcome(uint gameId) public isRegistered(gameId) revealPhaseEnded(gameId) returns (Outcomes) {
+    function _getOutcome(uint gameId) private isRegistered(gameId) revealPhaseEnded(gameId) returns (Outcomes) {
         Game storage game = games[gameId];
         Outcomes outcome = _computeOutcome(game.movePlayerA, game.movePlayerB);
         emit GameOutcome(gameId, outcome);
