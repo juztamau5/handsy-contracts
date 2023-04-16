@@ -18,5 +18,8 @@
   },
   "scripts": {
     "test": "NODE_ENV=test hardhat test"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.8.3"
   }
 }
