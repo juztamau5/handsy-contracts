@@ -1,9 +1,21 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.11;
 
+interface IBankroll {
+    function receiveFunds() external payable;
+}
+
 contract Hands {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
     uint constant public REVEAL_TIMEOUT = 10 minutes; // Max delay of revelation phase
+    uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the Bankroll contract
+
+    IBankroll private bankrollContract;
+
+    constructor(address _bankrollContractAddress) {
+        bankrollContract = IBankroll(_bankrollContractAddress);
+    }
+
 
     enum Moves {None, Rock, Paper, Scissors}
     enum Outcomes {None, PlayerA, PlayerB, Draw} // Possible outcomes
@@ -163,17 +175,24 @@ contract Hands {
 
     function _payWinners(uint gameId, Outcomes outcome) private {
         uint total = games[gameId].bet * 2;
+        uint fee = (total * FEE_PERCENTAGE) / 100; // Calculate the fee
+        uint payout = total - fee;
+
+        // Transfer the fee to the Bankroll contract
+        bankrollContract.receiveFunds{value: fee}();
+
         if (outcome == Outcomes.PlayerA) {
             // Use call to avoid reentrancy and gas issues
-            (bool success, ) = games[gameId].playerA.call{value: total}("");
+            (bool success, ) = games[gameId].playerA.call{value: payout}("");
             require(success, "Transfer to PlayerA failed");
         } else if (outcome == Outcomes.PlayerB) {
-            (bool success, ) = games[gameId].playerB.call{value: total}("");
+            (bool success, ) = games[gameId].playerB.call{value: payout}("");
             require(success, "Transfer to PlayerB failed");
         } else { // Draw
-            (bool successA, ) = games[gameId].playerA.call{value: games[gameId].bet}("");
+            uint halfPayout = payout / 2;
+            (bool successA, ) = games[gameId].playerA.call{value: halfPayout}("");
             require(successA, "Transfer to PlayerA failed");
-            (bool successB, ) = games[gameId].playerB.call{value: games[gameId].bet}("");
+            (bool successB, ) = games[gameId].playerB.call{value: halfPayout}("");
             require(successB, "Transfer to PlayerB failed");
         }
     }
