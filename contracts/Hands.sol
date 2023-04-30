@@ -9,6 +9,7 @@ contract Hands {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
     uint constant public REVEAL_TIMEOUT = 10 minutes; // Max delay of revelation phase
     uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the Bankroll contract
+    uint constant public MAX_POINTS_PER_ROUND = 3; // The maximum number of points per round
 
     IBankroll private bankrollContract;
 
@@ -28,6 +29,9 @@ contract Hands {
         bytes32 encrMovePlayerB;
         Moves movePlayerA;
         Moves movePlayerB;
+        uint round;
+        uint pointsA;
+        uint pointsB;
     }
 
     uint private lastGameId;
@@ -41,6 +45,7 @@ contract Hands {
     event PlayerWaiting(uint indexed gameId, uint bet);
     event GameOutcome(uint indexed gameId, Outcomes outcome);
     event MoveCommitted(uint indexed gameId, address indexed playerAddress);
+    event NewRound(uint indexed gameId, uint round, uint pointsA, uint pointsB);
     event MoveRevealed(uint indexed gameId, address indexed playerAddress, Moves move);
 
     modifier validBet() {
@@ -58,7 +63,7 @@ contract Hands {
         return lastGameId;
     }
 
-    function register(bytes32 encrMove) public payable validBet isNotAlreadyInGame returns (uint) {
+    function register() public payable validBet isNotAlreadyInGame returns (uint) {
         uint bet = msg.value;
         uint gameId;
 
@@ -66,7 +71,6 @@ contract Hands {
             gameId = waitingPlayers[bet];
             waitingPlayers[bet] = 0;
             games[gameId].playerB = payable(msg.sender);
-            games[gameId].encrMovePlayerB = encrMove;
             playerGame[msg.sender] = gameId;
             emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
         } else {
@@ -75,10 +79,13 @@ contract Hands {
                 playerA: payable(msg.sender),
                 playerB: payable(address(0)),
                 bet: bet,
-                encrMovePlayerA: encrMove,
+                encrMovePlayerA: 0x0,
                 encrMovePlayerB: 0x0,
                 movePlayerA: Moves.None,
-                movePlayerB: Moves.None
+                movePlayerB: Moves.None,
+                round: 0,
+                pointsA: 0,
+                pointsB: 0
             });
             playerGame[msg.sender] = gameId;
             waitingPlayers[bet] = gameId;
@@ -87,6 +94,20 @@ contract Hands {
 
         emit PlayerRegistered(gameId, msg.sender);
         return gameId;
+    }
+
+    //send the encrypted move to the contract
+    function commit(uint gameId, bytes32 encrMove) public isRegistered(gameId) {
+        Game storage game = games[gameId];
+        require(msg.sender == game.playerA || msg.sender == game.playerB, "Player not in game");
+        if (msg.sender == game.playerA) {
+            require(game.encrMovePlayerA == 0x0, "Player already committed");
+            game.encrMovePlayerA = encrMove;
+        } else {
+            require(game.encrMovePlayerB == 0x0, "Player already committed");
+            game.encrMovePlayerB = encrMove;
+        }
+        emit MoveCommitted(gameId, msg.sender);
     }
 
     modifier isRegistered(uint gameId) {
@@ -150,15 +171,44 @@ contract Hands {
         _;
     }
 
+    function _handleRound(uint gameId, Outcomes outcome) private {
+        Game storage game = games[gameId];
+
+        //update points
+        if (outcome == Outcomes.PlayerA) {
+            game.pointsA += 1;
+        } else if (outcome == Outcomes.PlayerB) {
+            game.pointsB += 1;
+        }
+
+        //check if game is over
+        if(game.pointsA == MAX_POINTS_PER_ROUND || game.pointsB == MAX_POINTS_PER_ROUND) {
+            //get winner
+            address payable winner;
+            if(game.pointsA == MAX_POINTS_PER_ROUND) {
+                winner = game.playerA;
+            } else {
+                winner = game.playerB;
+            }
+
+            emit GameOutcome(gameId, outcome);
+
+            _payWinner(gameId, winner);
+            _resetGame(gameId);
+        }
+
+        game.round += 1;
+
+        emit NewRound(gameId, game.round, game.pointsA, game.pointsB);
+
+    }
+
     function _getOutcome(uint gameId) private isRegistered(gameId) revealPhaseEnded(gameId) returns (Outcomes) {
         Game storage game = games[gameId];
         Outcomes outcome = _computeOutcome(game.movePlayerA, game.movePlayerB);
-        emit GameOutcome(gameId, outcome);
 
-        _payWinners(gameId, outcome);
-        _resetGame(gameId);
+        _handleRound(gameId, outcome);
 
-        return outcome;
     }
 
     function _computeOutcome(Moves moveA, Moves moveB) private pure returns (Outcomes) {
@@ -173,7 +223,7 @@ contract Hands {
         }
     }
 
-    function _payWinners(uint gameId, Outcomes outcome) private {
+    function _payWinner(uint gameId, address winner) private {
         uint total = games[gameId].bet * 2;
         uint fee = (total * FEE_PERCENTAGE) / 100; // Calculate the fee
         uint payout = total - fee;
@@ -181,22 +231,11 @@ contract Hands {
         // Transfer the fee to the Bankroll contract
         bankrollContract.receiveFunds{value: fee}();
 
-        if (outcome == Outcomes.PlayerA) {
-            // Use call to avoid reentrancy and gas issues
-            (bool success, ) = games[gameId].playerA.call{value: payout}("");
-            require(success, "Transfer to PlayerA failed");
-        } else if (outcome == Outcomes.PlayerB) {
-            (bool success, ) = games[gameId].playerB.call{value: payout}("");
-            require(success, "Transfer to PlayerB failed");
-        } else { // Draw
-            uint halfPayout = payout / 2;
-            (bool successA, ) = games[gameId].playerA.call{value: halfPayout}("");
-            require(successA, "Transfer to PlayerA failed");
-            (bool successB, ) = games[gameId].playerB.call{value: halfPayout}("");
-            require(successB, "Transfer to PlayerB failed");
-        }
+        //Pay winner
+        (bool success, ) = winner.call{value: payout}("");
+        require(success, "Transfer to Winner failed");
+        
     }
-
 
     function _resetGame(uint gameId) private {
         delete playerGame[games[gameId].playerA];

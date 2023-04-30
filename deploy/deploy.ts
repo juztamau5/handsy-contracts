@@ -9,47 +9,43 @@ if (!PRIVATE_KEY) {
   throw new Error("Please set ZKS_PRIVATE_KEY in the environment variables.");
 }
 
-// An example of a deploy script that will deploy and call a simple contract.
 export default async function (hre: HardhatRuntimeEnvironment) {
-  console.log(`Running deploy script for the Hands contract`);
+  console.log(`Running deploy script for the Hands and Bankroll contracts`);
 
-  // Initialize the wallet.
   const wallet = new Wallet(PRIVATE_KEY);
 
-  // Create deployer object and load the artifact of the contract you want to deploy.
   const deployer = new Deployer(hre, wallet);
-  const artifact = await deployer.loadArtifact("Hands");
 
-  // Estimate contract deployment fee
-  const deploymentFee = await deployer.estimateDeployFee(artifact, []);
+  // Load the artifact of the Bankroll contract you want to deploy.
+  const bankrollArtifact = await deployer.loadArtifact("Bankroll");
 
-  // OPTIONAL: Deposit funds to L2
-  // Comment this block if you already have funds on zkSync.
-  // const depositHandle = await deployer.zkWallet.deposit({
-  //   to: deployer.zkWallet.address,
-  //   token: utils.ETH_ADDRESS,
-  //   amount: deploymentFee.mul(2),
-  // });
-  // // Wait until the deposit is processed on zkSync
-  // await depositHandle.wait();
+  // Estimate Bankroll contract deployment fee
+  const bankrollDeploymentFee = await deployer.estimateDeployFee(bankrollArtifact, []);
 
-  // Deploy this contract. The returned object will be of a `Contract` type, similarly to ones in `ethers`.
-  // `greeting` is an argument for contract constructor.
-  const parsedFee = ethers.utils.formatEther(deploymentFee.toString());
-  console.log(`The deployment is estimated to cost ${parsedFee} ETH`);
-  //log current funds
-  const balance = await deployer.zkWallet.getBalance("ETH");
-  console.log(`Current balance: ${ethers.utils.formatEther(balance.toString())} ETH`);
-  //log address
-  console.log(`Deploying from address: ${deployer.zkWallet.address}`);
+  const parsedBankrollFee = ethers.utils.formatEther(bankrollDeploymentFee.toString());
+  console.log(`The Bankroll deployment is estimated to cost ${parsedBankrollFee} ETH`);
 
-  const handsContract = await deployer.deploy(artifact, []);
+  // Deploy Bankroll contract
+  const bankrollContract = await deployer.deploy(bankrollArtifact, []);
 
-  //obtain the Constructor Arguments
-  console.log("constructor args:" + handsContract.interface.encodeDeploy([]));
+  // Show the Bankroll contract info
+  const bankrollContractAddress = bankrollContract.address;
+  console.log(`Bankroll was deployed to ${bankrollContractAddress}`);
 
-  // Show the contract info.
-  const contractAddress = handsContract.address;
-  console.log(`${artifact.contractName} was deployed to ${contractAddress}`);
+  // Load the artifact of the Hands contract you want to deploy.
+  const handsArtifact = await deployer.loadArtifact("Hands");
+
+  // Estimate Hands contract deployment fee
+  const handsDeploymentFee = await deployer.estimateDeployFee(handsArtifact, [bankrollContractAddress]);
+
+  const parsedHandsFee = ethers.utils.formatEther(handsDeploymentFee.toString());
+  console.log(`The Hands deployment is estimated to cost ${parsedHandsFee} ETH`);
+
+  // Deploy Hands contract, passing the address of the deployed Bankroll contract to the constructor
+  const handsContract = await deployer.deploy(handsArtifact, [bankrollContractAddress]);
+
+  // Show the Hands contract info
+  const handsContractAddress = handsContract.address;
+  console.log(`Hands was deployed to ${handsContractAddress}`);
 }
 
