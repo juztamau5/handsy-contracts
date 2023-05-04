@@ -18,11 +18,10 @@ contract Bankroll {
         _;
     }
 
-    constructor(address[] memory _allowedWithdrawers) {
+    constructor() {
         owner = msg.sender;
-        for (uint256 i = 0; i < _allowedWithdrawers.length; i++) {
-            allowedWithdrawers[_allowedWithdrawers[i]] = true;
-        }
+        // Allow owner to withdraw funds
+        allowedWithdrawers[msg.sender] = true;
     }
 
     function receiveFunds() external payable {
@@ -40,7 +39,7 @@ contract Bankroll {
 
     function withdraw(uint256 amount) external onlyAllowedWithdrawers {
         require(amount <= address(this).balance, "Insufficient funds");
-        payable(msg.sender).transfer(amount);
+        payable(msg.sender).call{value: amount}("");
     }
 
     function updateAllowedWithdrawers(address withdrawer, bool allowed) external onlyOwner {

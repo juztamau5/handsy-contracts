@@ -44,9 +44,9 @@ contract Hands {
     event PlayerRegistered(uint indexed gameId, address indexed playerAddress);
     event PlayerWaiting(uint indexed gameId, uint bet);
     event GameOutcome(uint indexed gameId, Outcomes outcome);
-    event MoveCommitted(uint indexed gameId, address indexed playerAddress);
+    event MoveCommitted(uint indexed gameId, address indexed playerAddress, uint round);
     event NewRound(uint indexed gameId, uint round, uint pointsA, uint pointsB);
-    event MoveRevealed(uint indexed gameId, address indexed playerAddress, Moves move);
+    event MoveRevealed(uint indexed gameId, address indexed playerAddress, Moves move, uint round);
 
     modifier validBet() {
         require(msg.value >= BET_MIN, "Bet must be at least the minimum bet amount");
@@ -107,7 +107,7 @@ contract Hands {
             require(game.encrMovePlayerB == 0x0, "Player already committed");
             game.encrMovePlayerB = encrMove;
         }
-        emit MoveCommitted(gameId, msg.sender);
+        emit MoveCommitted(gameId, msg.sender, game.round);
     }
 
     modifier isRegistered(uint gameId) {
@@ -120,7 +120,14 @@ contract Hands {
         _;
     }
 
-    function reveal(uint gameId, string memory clearMove) public isRegistered(gameId) commitPhaseEnded(gameId) returns (Moves) {
+    modifier hasNotRevealed(uint gameId) {
+        require(msg.sender == games[gameId].playerA && games[gameId].movePlayerA == Moves.None ||
+                msg.sender == games[gameId].playerB && games[gameId].movePlayerB == Moves.None,
+                "Player already revealed");
+        _;
+    }
+
+    function reveal(uint gameId, string memory clearMove) public isRegistered(gameId) commitPhaseEnded(gameId) hasNotRevealed(gameId) returns (Moves) {
         bytes32 encrMove = sha256(abi.encodePacked(clearMove));
         Moves move = Moves(getFirstChar(clearMove));
 
@@ -137,7 +144,7 @@ contract Hands {
             game.movePlayerB = move;
         }
 
-        emit MoveRevealed(gameId, msg.sender, move);
+        emit MoveRevealed(gameId, msg.sender, move, game.round);
 
         if (firstReveal[gameId] == 0) {
             firstReveal[gameId] = block.timestamp;
@@ -200,6 +207,8 @@ contract Hands {
         game.round += 1;
 
         emit NewRound(gameId, game.round, game.pointsA, game.pointsB);
+        
+        _resetRound(gameId);
 
     }
 
@@ -241,6 +250,15 @@ contract Hands {
         delete playerGame[games[gameId].playerA];
         delete playerGame[games[gameId].playerB];
         delete games[gameId];
+        delete firstReveal[gameId];
+    }
+
+    function _resetRound(uint gameId) private {
+        Game storage game = games[gameId];
+        game.movePlayerA = Moves.None;
+        game.movePlayerB = Moves.None;
+        game.encrMovePlayerA = 0x0;
+        game.encrMovePlayerB = 0x0;
         delete firstReveal[gameId];
     }
 }

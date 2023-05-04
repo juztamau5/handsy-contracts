@@ -20,13 +20,16 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   const bankrollArtifact = await deployer.loadArtifact("Bankroll");
 
   // Estimate Bankroll contract deployment fee
-  const bankrollDeploymentFee = await deployer.estimateDeployFee(bankrollArtifact, []);
+  //const bankrollDeploymentFee = await deployer.estimateDeployFee(bankrollArtifact);
 
-  const parsedBankrollFee = ethers.utils.formatEther(bankrollDeploymentFee.toString());
-  console.log(`The Bankroll deployment is estimated to cost ${parsedBankrollFee} ETH`);
+  //const parsedBankrollFee = ethers.utils.formatEther(bankrollDeploymentFee.toString());
+  //console.log(`The Bankroll deployment is estimated to cost ${parsedBankrollFee} ETH`);
+
+  //deployer address
+  //const deployerAddress = await wallet.getAddress();
 
   // Deploy Bankroll contract
-  const bankrollContract = await deployer.deploy(bankrollArtifact, []);
+  const bankrollContract = await deployer.deploy(bankrollArtifact);
 
   // Show the Bankroll contract info
   const bankrollContractAddress = bankrollContract.address;
