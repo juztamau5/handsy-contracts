@@ -188,6 +188,13 @@ contract Hands {
             game.pointsB += 1;
         }
 
+        game.round += 1;
+
+        emit NewRound(gameId, game.round, game.pointsA, game.pointsB);
+        
+        _resetRound(gameId);
+
+
         //check if game is over
         if(game.pointsA == MAX_POINTS_PER_ROUND || game.pointsB == MAX_POINTS_PER_ROUND) {
             //get winner
@@ -203,12 +210,6 @@ contract Hands {
             _payWinner(gameId, winner);
             _resetGame(gameId);
         }
-
-        game.round += 1;
-
-        emit NewRound(gameId, game.round, game.pointsA, game.pointsB);
-        
-        _resetRound(gameId);
 
     }
 
