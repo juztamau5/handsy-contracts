@@ -28,7 +28,7 @@ contract HandsStaking {
 
     function stake(uint256 amount) external {
         handsToken.transferFrom(msg.sender, address(this), amount);
-                totalStaked += amount;
+        totalStaked += amount;
         stakers[msg.sender].stakedAmount += amount;
         _claimRewards(msg.sender);
     }
@@ -67,7 +67,11 @@ contract HandsStaking {
 
     function _startNewPeriod() private {
         require(block.number >= lastPeriodEndBlock + BLOCKS_PER_PERIOD, "New period has not started yet");
-        uint256 collectedEth = address(this).balance;
+
+        uint256 startBlock = lastPeriodEndBlock + 1;
+        uint256 endBlock = startBlock + BLOCKS_PER_PERIOD - 1;
+        uint256 collectedEth = bankrollContract.getReceivedFundsForStakingInPeriod(startBlock, endBlock);
+
         ethPerBlock = (collectedEth * DECIMALS) / BLOCKS_PER_PERIOD;
         lastPeriodEndBlock += BLOCKS_PER_PERIOD;
     }

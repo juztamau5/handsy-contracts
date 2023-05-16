@@ -21,6 +21,8 @@
     "test": "NODE_ENV=test hardhat test"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.8.3"
+    "@openzeppelin/contracts": "^4.8.3",
+    "@uniswap/v3-core": "^1.0.1",
+    "@uniswap/v3-periphery": "^1.4.3"
   }
 }
