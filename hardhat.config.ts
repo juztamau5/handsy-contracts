@@ -13,6 +13,7 @@ const zkSyncTestnet =
         url: "https://testnet.era.zksync.dev",
         ethNetwork: "goerli",
         zksync: true,
+        verifyURL: 'https://testnet-explorer.zksync.dev/contract_verification'
       };
 
 module.exports = {

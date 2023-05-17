@@ -1,3 +1,0 @@
-[submodule "core-contracts"]
-	path = syncswap-contracts
-	url = https://github.com/syncswap/core-contracts.git
