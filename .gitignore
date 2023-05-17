@@ -1,5 +1,6 @@
 node_modules
 artifacts-zk
 cache-zk
+local-dependency-contracts.json
 
 *.me

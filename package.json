@@ -18,6 +18,10 @@
     "zksync-web3": "^0.13.4"
   },
   "scripts": {
+    "build": "yarn hardhat compile && cd ./syncswap-contracts && yarn build-zk && cd ..",
+    "deploy-local": "cd ./syncswap-contracts && yarn deploy-zksync-local && cd .. && NODE_ENV=test yarn hardhat deploy-zksync --script deployLocal.ts",
+    "deploy-testnet": "hardhat run --network rinkeby scripts/deploy.ts",
+    "deploy-mainnet": "hardhat run --network mainnet scripts/deploy.ts",
     "test": "NODE_ENV=test hardhat test"
   },
   "dependencies": {

@@ -1,3 +1,6 @@
 [submodule "syncswap-contracts"]
 	path = syncswap-contracts
 	url = https://github.com/gothands/syncswap-contracts.git
+[submodule "local-setup"]
+	path = local-setup
+	url = https://github.com/matter-labs/local-setup.git
