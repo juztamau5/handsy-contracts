@@ -1,4 +1,4 @@
-import { Wallet, utils } from "zksync-web3";
+import { Wallet, utils, Provider } from "zksync-web3";
 import * as ethers from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
@@ -7,6 +7,19 @@ import * as secrets from "../secrets.json";
 
 // Get private key from the environment variable
 const PRIVATE_KEY: string = secrets.privateKey;
+
+interface DependencyAbis {
+    wETH: any;
+    vault: any;
+    master: any;
+    classicFactory: any;
+    stableFactory: any;
+    router: any;
+    feeManager: any;
+    feeRecipient: any;
+    feeRegistry: any;
+    forwardRegistry: any;
+}
 
 interface DependencyContracts {
     wETH: string;
@@ -18,8 +31,56 @@ interface DependencyContracts {
     feeManager: string;
     feeRecipient: string;
     feeRegistry: string;
-    fowardRegistry: string;
+    forwardRegistry: string;
 }
+
+const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
+    const wETHFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/WETH.sol/WETH.json");
+    const vaultFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/vault/SyncSwapVault.sol/SyncSwapVault.json");
+    const masterFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/SyncSwapPoolMaster.sol/SyncSwapPoolMaster.json");
+    const classicFactoryFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/pool/classic/SyncSwapClassicPoolFactory.sol/SyncSwapClassicPoolFactory.json");
+    const stableFactoryFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/pool/stable/SyncSwapStablePoolFactory.sol/SyncSwapStablePoolFactory.json");
+    const routerFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/SyncSwapRouter.sol/SyncSwapRouter.json");
+    const feeManagerFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/SyncSwapFeeManager.sol/SyncSwapFeeManager.json");
+    const feeRecipientFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/SyncSwapFeeRecipient.sol/SyncSwapFeeRecipient.json");
+    const feeRegistryFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/FeeRegistry.sol/FeeRegistry.json");
+    const forwardRegistryFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/ForwarderRegistry.sol/ForwarderRegistry.json");
+
+    //make sure all files are loaded
+    if(!wETHFile || !vaultFile || !masterFile || !classicFactoryFile || !stableFactoryFile || !routerFile || !feeManagerFile || !feeRecipientFile || !feeRegistryFile || !forwardRegistryFile) {
+        throw new Error("Please run `yarn deploy:local` first");
+    }
+
+    const wETH = JSON.parse(wETHFile.toString()).abi;
+    const vault = JSON.parse(vaultFile.toString()).abi;
+    const master = JSON.parse(masterFile.toString()).abi;
+    const classicFactory = JSON.parse(classicFactoryFile.toString()).abi;
+    const stableFactory = JSON.parse(stableFactoryFile.toString()).abi;
+    const router = JSON.parse(routerFile.toString()).abi;
+    const feeManager = JSON.parse(feeManagerFile.toString()).abi;
+    const feeRecipient = JSON.parse(feeRecipientFile.toString()).abi;
+    const feeRegistry = JSON.parse(feeRegistryFile.toString()).abi;
+    const forwardRegistry = JSON.parse(forwardRegistryFile.toString()).abi;
+
+    //make sure all files are parsed
+    if(!wETH || !vault || !master || !classicFactory || !stableFactory || !router || !feeManager || !feeRecipient || !feeRegistry || !forwardRegistry) {
+        throw new Error("Please run `yarn deploy:local` first");
+    }
+
+    return {
+        wETH,
+        vault,
+        master,
+        classicFactory,
+        stableFactory,
+        router,
+        feeManager,
+        feeRecipient,
+        feeRegistry,
+        forwardRegistry
+    }
+}
+
 
 const fetchDependencyContracts = async (): Promise<DependencyContracts> => {
     const file = fs.readFileSync("./local-dependency-contracts.json");
@@ -38,48 +99,162 @@ const fetchDependencyContracts = async (): Promise<DependencyContracts> => {
 }
 
 export default async function (hre: HardhatRuntimeEnvironment) {
-  console.log(`Running deploy script for the Hands and Bankroll contracts`);
+    console.log(`Running deploy script for the Hands and Bankroll contracts`);
 
-  const wallet = new Wallet(PRIVATE_KEY);
+    //Fetch wallet and deployer
+    const l2Provider = new Provider("http://localhost:3050");
+    const wallet = new Wallet(PRIVATE_KEY, l2Provider);
+    const deployer = new Deployer(hre, wallet);
 
-  const deployer = new Deployer(hre, wallet);
 
-  const dependencyContracts = await fetchDependencyContracts();
+    //dependency contracts
+    const dependencyContracts = await fetchDependencyContracts();
     console.log(dependencyContracts);
 
-  // Load the artifact of the Bankroll contract you want to deploy.
-  const bankrollArtifact = await deployer.loadArtifact("Bankroll");
+    //dependency abis
+    const dependencyAbis = await fetchDependencyAbis();
+    console.log(dependencyAbis);
 
-  // Estimate Bankroll contract deployment fee
-  //const bankrollDeploymentFee = await deployer.estimateDeployFee(bankrollArtifact);
 
-  //const parsedBankrollFee = ethers.utils.formatEther(bankrollDeploymentFee.toString());
-  //console.log(`The Bankroll deployment is estimated to cost ${parsedBankrollFee} ETH`);
 
-  //deployer address
-  //const deployerAddress = await wallet.getAddress();
+    //DEPLOY HANDS TOKEN
 
-  // Deploy Bankroll contract
-  const bankrollContract = await deployer.deploy(bankrollArtifact);
+    // Load the artifact of the HandsToken contract you want to deploy.
+    const handsTokenArtifact = await deployer.loadArtifact("HandsToken");
 
-  // Show the Bankroll contract info
-  const bankrollContractAddress = bankrollContract.address;
-  console.log(`Bankroll was deployed to ${bankrollContractAddress}`);
+    // Set the premintReceiver, premintAmount, and supplyCap according to your requirements.
+    const premintReceiver = wallet.address;
+    const premintAmount = ethers.utils.parseUnits("1000000", 18);
+    const supplyCap = ethers.utils.parseUnits("10000000", 18);
 
-  // Load the artifact of the Hands contract you want to deploy.
-  const handsArtifact = await deployer.loadArtifact("Hands");
+    // Deploy the HandsToken contract
+    const handsTokenContract = await deployer.deploy(handsTokenArtifact, [premintReceiver, premintAmount, supplyCap]);
+    const handsTokenContractAddress = handsTokenContract.address;
+    console.log(`HandsToken was deployed to ${handsTokenContractAddress}`);
 
-  // Estimate Hands contract deployment fee
-  const handsDeploymentFee = await deployer.estimateDeployFee(handsArtifact, [bankrollContractAddress]);
+    
 
-  const parsedHandsFee = ethers.utils.formatEther(handsDeploymentFee.toString());
-  console.log(`The Hands deployment is estimated to cost ${parsedHandsFee} ETH`);
+    // CREATE LIQUIDITY WETH/HANDS AND RECIEVE LP TOKEN
 
-  // Deploy Hands contract, passing the address of the deployed Bankroll contract to the constructor
-  const handsContract = await deployer.deploy(handsArtifact, [bankrollContractAddress]);
+    // get weth token address
+    const wethTokenAddress = dependencyContracts.wETH;
+    const wethTokenAbi = dependencyAbis.wETH;
+    const wethTokenContract = new ethers.Contract(wethTokenAddress, wethTokenAbi, wallet);
 
-  // Show the Hands contract info
-  const handsContractAddress = handsContract.address;
-  console.log(`Hands was deployed to ${handsContractAddress}`);
+    // get hands token address
+    const handsTokenAddress = handsTokenContractAddress;
+    const handsTokenAbi = handsTokenArtifact.abi;
+    const handsTokenContract_ = new ethers.Contract(handsTokenAddress, handsTokenAbi, wallet);
+
+    // get classic factory address and abi
+    const classicFactoryAddress = dependencyContracts.classicFactory;
+    const classicFactoryAbi = dependencyAbis.classicFactory;
+
+    // instantiate the ClassicFactory contract
+    const classicFactory = new ethers.Contract(classicFactoryAddress, classicFactoryAbi, wallet);
+
+    // create a new liquidity pool for HANDS and WETH tokens
+    const createPoolTx = await classicFactory.createPool(ethers.utils.defaultAbiCoder.encode(['address', 'address'], [handsTokenAddress, wethTokenAddress]));
+    const createPoolReceipt = await createPoolTx.wait();
+
+    // retrieve the pool address from the PoolCreated event
+    const poolCreatedEvent = createPoolReceipt.events.find((event: { event: string; }) => event.event === 'PoolCreated');
+    const poolAddress = poolCreatedEvent.args.pool;
+
+    console.log(`A new liquidity pool for HANDS and WETH tokens has been created at address ${poolAddress}`);
+    
+
+
+
+
+
+    //DEPLOY BANKROLL CONTRACT
+
+    // Load the artifact of the Bankroll contract you want to deploy.
+    const bankrollArtifact = await deployer.loadArtifact("Bankroll");
+
+    // Deploy Bankroll contract
+    const bankrollContract = await deployer.deploy(bankrollArtifact);
+
+    // Show the Bankroll contract info
+    const bankrollContractAddress = bankrollContract.address;
+    console.log(`Bankroll was deployed to ${bankrollContractAddress}`);
+
+
+
+
+    //DEPLOY STAKING CONTRACT
+
+    // Load the artifact of the Staking contract you want to deploy.
+    const stakingArtifact = await deployer.loadArtifact("HandsStaking");
+
+    // Estimate Staking contract deployment fee
+    const stakingDeploymentFee = await deployer.estimateDeployFee(stakingArtifact, [handsTokenContractAddress, bankrollContractAddress]);
+
+    const parsedStakingFee = ethers.utils.formatEther(stakingDeploymentFee.toString());
+    console.log(`The Staking deployment is estimated to cost ${parsedStakingFee} ETH`);
+
+    // Deploy Staking contract, passing the addresses of the deployed HandsToken and Bankroll contracts to the constructor
+    const stakingContract = await deployer.deploy(stakingArtifact, [handsTokenContractAddress, bankrollContractAddress]);
+
+    // Show the Staking contract info
+    const stakingContractAddress = stakingContract.address;
+    console.log(`Staking was deployed to ${stakingContractAddress}`);
+
+
+
+
+
+    //DEPLOY LP STACKING CONTRACT
+
+    // Load the artifact of the LPStaking contract you want to deploy.
+    const lpStakingArtifact = await deployer.loadArtifact("LPRewardsStaking");
+
+    // Estimate LPStaking contract deployment fee
+    const lpStakingDeploymentFee = await deployer.estimateDeployFee(lpStakingArtifact, [poolAddress, handsTokenContractAddress, bankrollContractAddress]);
+
+    const parsedLpStakingFee = ethers.utils.formatEther(lpStakingDeploymentFee.toString());
+    console.log(`The LPStaking deployment is estimated to cost ${parsedLpStakingFee} ETH`);
+
+    // Deploy LPStaking contract, passing the addresses of the deployed LP POOL TOKEN and HandsToken and Bankroll contracts to the constructor
+    const lpStakingContract = await deployer.deploy(lpStakingArtifact, [poolAddress, handsTokenContractAddress, bankrollContractAddress]);
+
+    //Get HandsToken balance
+    const handsTokenBalance = await handsTokenContract.balanceOf(wallet.address);
+    console.log(`HandsToken balance: ${handsTokenBalance/1e18}`);
+
+    //approve the LPStaking contract to spend the HandsToken
+    const approveTx = await handsTokenContract.approve(lpStakingContract.address, ethers.utils.parseUnits("700000", 18));
+    await approveTx.wait();
+
+    //send 70% of the HandsToken supply to the LPStaking contract
+    const reciept = await handsTokenContract.transfer(lpStakingContract.address, ethers.utils.parseUnits("700000", 18));
+    await reciept.wait();
+
+    // Show the LPStaking contract info
+    const lpStakingContractAddress = lpStakingContract.address;
+    console.log(`LPStaking was deployed to ${lpStakingContractAddress}`);
+
+
+
+
+
+    //DEPLOY HANDS CONTRACT
+
+    // Load the artifact of the Hands contract you want to deploy.
+    const handsArtifact = await deployer.loadArtifact("Hands");
+
+    // Estimate Hands contract deployment fee
+    const handsDeploymentFee = await deployer.estimateDeployFee(handsArtifact, [bankrollContractAddress]);
+
+    const parsedHandsFee = ethers.utils.formatEther(handsDeploymentFee.toString());
+    console.log(`The Hands deployment is estimated to cost ${parsedHandsFee} ETH`);
+
+    // Deploy Hands contract, passing the address of the deployed Bankroll contract to the constructor
+    const handsContract = await deployer.deploy(handsArtifact, [bankrollContractAddress]);
+
+    // Show the Hands contract info
+    const handsContractAddress = handsContract.address;
+    console.log(`Hands was deployed to ${handsContractAddress}`);
 }
 
