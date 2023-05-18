@@ -34,6 +34,23 @@ interface DependencyContracts {
     forwardRegistry: string;
 }
 
+interface DeployedContracts {
+    HandsToken: string;
+    Hands: string;
+    Bankroll: string;
+    Staking: string;
+    LpStaking: string;
+    Pool: string;
+}
+
+interface DeployedAbis {
+    HandsToken: any;
+    Hands: any;
+    Bankroll: any;
+    Staking: any;
+    LpStaking: any;
+}
+
 const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
     const wETHFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/WETH.sol/WETH.json");
     const vaultFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/vault/SyncSwapVault.sol/SyncSwapVault.json");
@@ -81,7 +98,6 @@ const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
     }
 }
 
-
 const fetchDependencyContracts = async (): Promise<DependencyContracts> => {
     const file = fs.readFileSync("./local-dependency-contracts.json");
 
@@ -96,6 +112,39 @@ const fetchDependencyContracts = async (): Promise<DependencyContracts> => {
     }
 
     return contracts;
+}
+
+
+const setLocalContractFile = async (
+        dependencyContracts: DependencyContracts,
+        dependencyAbis: DependencyAbis,
+        deployedContracts: DeployedContracts,
+        deployedAbis: DeployedAbis,
+    ) => {
+    const file = {
+        dependencyContracts,
+        dependencyAbis,
+        deployedContracts,
+        deployedAbis
+    };
+
+    fs.writeFileSync("./local-contracts.json", JSON.stringify(file, null, 4));
+}
+
+function waitForPoolCreatedEvent(contract: any): Promise<string> {
+    return new Promise((resolve, reject) => {
+        // Event listener
+        contract.on('PoolCreated', (token0: any, token1: any, pool: any) => {
+            console.log(`PoolCreated event received: token0: ${token0}, token1: ${token1}, pool: ${pool}`);
+            contract.off('PoolCreated'); // Stop listening after the event is received
+            resolve(pool);  // Resolve the promise with pool address
+        });
+
+        // Error handling
+        setTimeout(() => {
+            reject(new Error('Timeout: PoolCreated event not received'));
+        }, 60000);  // 60 second timeout, adjust as needed
+    });
 }
 
 export default async function (hre: HardhatRuntimeEnvironment) {
@@ -113,7 +162,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
     //dependency abis
     const dependencyAbis = await fetchDependencyAbis();
-    console.log(dependencyAbis);
+    //console.log(dependencyAbis);
 
 
 
@@ -150,20 +199,25 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const classicFactoryAddress = dependencyContracts.classicFactory;
     const classicFactoryAbi = dependencyAbis.classicFactory;
 
+    //get router address and abi
+    const routerAddress = dependencyContracts.router;
+    const routerAbi = dependencyAbis.router;
+
     // instantiate the ClassicFactory contract
     const classicFactory = new ethers.Contract(classicFactoryAddress, classicFactoryAbi, wallet);
 
+    // instantiate the Router contract
+    const router = new ethers.Contract(routerAddress, routerAbi, wallet);
+
     // create a new liquidity pool for HANDS and WETH tokens
-    const createPoolTx = await classicFactory.createPool(ethers.utils.defaultAbiCoder.encode(['address', 'address'], [handsTokenAddress, wethTokenAddress]));
+    const parameterTypes = ['address', 'address'];
+    const parameters = [handsTokenAddress, wethTokenAddress];
+    const encodedData = ethers.utils.defaultAbiCoder.encode(parameterTypes, parameters);
+    const createPoolTx = await router.createPool(classicFactoryAddress, encodedData);
     const createPoolReceipt = await createPoolTx.wait();
 
     // retrieve the pool address from the PoolCreated event
-    const poolCreatedEvent = createPoolReceipt.events.find((event: { event: string; }) => event.event === 'PoolCreated');
-    const poolAddress = poolCreatedEvent.args.pool;
-
-    console.log(`A new liquidity pool for HANDS and WETH tokens has been created at address ${poolAddress}`);
-    
-
+    const poolAddress = await waitForPoolCreatedEvent(classicFactory);
 
 
 
@@ -256,5 +310,35 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     // Show the Hands contract info
     const handsContractAddress = handsContract.address;
     console.log(`Hands was deployed to ${handsContractAddress}`);
+
+
+
+
+    //DEPLOYMENT FILE   
+    //create new json file with all the contract addresses
+    const deployedContracts: DeployedContracts = {
+        HandsToken: handsTokenContractAddress,
+        Bankroll: bankrollContractAddress,
+        Staking: stakingContractAddress,
+        LpStaking: lpStakingContractAddress,
+        Hands: handsContractAddress,
+        Pool: poolAddress
+    };
+
+    const deployedAbis: DeployedAbis = {
+        HandsToken: handsTokenAbi,
+        Bankroll: bankrollArtifact.abi,
+        Staking: stakingArtifact.abi,
+        LpStaking: lpStakingArtifact.abi,
+        Hands: handsArtifact.abi
+    };
+
+    setLocalContractFile(
+        dependencyContracts,
+        dependencyAbis,
+        deployedContracts,
+        deployedAbis
+    );
+
 }
 
