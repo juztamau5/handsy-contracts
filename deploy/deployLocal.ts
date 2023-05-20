@@ -19,6 +19,7 @@ interface DependencyAbis {
     feeRecipient: any;
     feeRegistry: any;
     forwardRegistry: any;
+    classicPool: any;
 }
 
 interface DependencyContracts {
@@ -62,9 +63,10 @@ const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
     const feeRecipientFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/SyncSwapFeeRecipient.sol/SyncSwapFeeRecipient.json");
     const feeRegistryFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/FeeRegistry.sol/FeeRegistry.json");
     const forwardRegistryFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/master/ForwarderRegistry.sol/ForwarderRegistry.json");
+    const classicPoolFile = fs.readFileSync("./syncswap-contracts/artifacts-zk/contracts/pool/classic/SyncSwapClassicPool.sol/SyncSwapClassicPool.json");
 
     //make sure all files are loaded
-    if(!wETHFile || !vaultFile || !masterFile || !classicFactoryFile || !stableFactoryFile || !routerFile || !feeManagerFile || !feeRecipientFile || !feeRegistryFile || !forwardRegistryFile) {
+    if(!wETHFile || !vaultFile || !masterFile || !classicFactoryFile || !stableFactoryFile || !routerFile || !feeManagerFile || !feeRecipientFile || !feeRegistryFile || !forwardRegistryFile || !classicPoolFile) {
         throw new Error("Please run `yarn deploy:local` first");
     }
 
@@ -78,9 +80,10 @@ const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
     const feeRecipient = JSON.parse(feeRecipientFile.toString()).abi;
     const feeRegistry = JSON.parse(feeRegistryFile.toString()).abi;
     const forwardRegistry = JSON.parse(forwardRegistryFile.toString()).abi;
+    const classicPool = JSON.parse(classicPoolFile.toString()).abi;
 
     //make sure all files are parsed
-    if(!wETH || !vault || !master || !classicFactory || !stableFactory || !router || !feeManager || !feeRecipient || !feeRegistry || !forwardRegistry) {
+    if(!wETH || !vault || !master || !classicFactory || !stableFactory || !router || !feeManager || !feeRecipient || !feeRegistry || !forwardRegistry || !classicPool) {
         throw new Error("Please run `yarn deploy:local` first");
     }
 
@@ -94,7 +97,8 @@ const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
         feeManager,
         feeRecipient,
         feeRegistry,
-        forwardRegistry
+        forwardRegistry,
+        classicPool
     }
 }
 

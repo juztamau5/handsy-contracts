@@ -98,7 +98,7 @@ contract LPRewardsStaking is ReentrancyGuard {
         return (rewardsInPeriod * stakedBalance) / totalLiquidity;
     }
 
-    function getClaimableRewards(address account) external view returns (uint256 bankrollRewards, uint256 rewardTokenAmount) {
+    function getClaimableRewards() external view returns (uint256 bankrollRewards, uint256 rewardTokenAmount) {
         bankrollRewards = _calculateBankrollRewards();
         rewardTokenAmount = _calculateRewardTokenAmount();
 

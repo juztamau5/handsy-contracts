@@ -60,10 +60,14 @@ contract HandsStaking {
 
     function _calculateRewards(address stakerAddress) private view returns (uint256) {
         Staker storage staker = stakers[stakerAddress];
+        if (staker.stakedAmount == 0 || totalStaked == 0) {
+            return 0;
+        }
         uint256 claimableBlocks = block.number - staker.lastClaimedBlock;
         uint256 stakerShare = (staker.stakedAmount * DECIMALS) / totalStaked;
         return (ethPerBlock * claimableBlocks * stakerShare) / DECIMALS;
     }
+
 
     function _startNewPeriod() private {
         require(block.number >= lastPeriodEndBlock + BLOCKS_PER_PERIOD, "New period has not started yet");
@@ -78,5 +82,13 @@ contract HandsStaking {
 
     function viewClaimableRewards(address stakerAddress) external view returns (uint256) {
         return _calculateRewards(stakerAddress);
+    }
+
+    function viewStakedAmount(address stakerAddress) external view returns (uint256) {
+        return stakers[stakerAddress].stakedAmount;
+    }
+
+    function viewTotalStaked() external view returns (uint256) {
+        return totalStaked;
     }
 }
