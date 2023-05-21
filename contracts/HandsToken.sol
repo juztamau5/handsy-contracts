@@ -21,7 +21,7 @@ contract HandsToken is ERC20, Ownable {
         require(_cap > _premintAmount, "HANDS: Premint amount is greater than cap");
         // Transfer the sum of the premint to address
         _mint(_premintReceiver, _premintAmount);
-        _SUPPLY_CAP = _cap;
+        _SUPPLY_CAP = _cap; 
     }
 
     /**

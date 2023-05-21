@@ -210,7 +210,6 @@ contract Hands {
             _payWinner(gameId, winner);
             _resetGame(gameId);
         }
-
     }
 
     function _getOutcome(uint gameId) private isRegistered(gameId) revealPhaseEnded(gameId) returns (Outcomes) {
@@ -254,7 +253,7 @@ contract Hands {
         delete firstReveal[gameId];
     }
 
-    function _resetRound(uint gameId) private { 
+    function _resetRound(uint gameId) private {  
         Game storage game = games[gameId];
         game.movePlayerA = Moves.None;
         game.movePlayerB = Moves.None;

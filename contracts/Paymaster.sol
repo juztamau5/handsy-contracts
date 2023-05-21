@@ -21,7 +21,7 @@ contract MyPaymaster is IPaymaster {
         );
         // Continue execution if called from the bootloader.
         _;
-    }
+    } 
 
     constructor(address _erc20) {
         allowedToken = _erc20;
