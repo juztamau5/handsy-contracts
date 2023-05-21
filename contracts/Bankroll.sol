@@ -12,7 +12,7 @@ contract Bankroll {
     mapping(address => mapping(uint256 => uint256)) private receivedFundsPerAffiliatePerBlock;
     mapping(address => bool) private allowedWithdrawers;
 
-    event FundsReceived(address indexed sender, uint256 amount, uint256 blockNumber, address affiliateA, address affiliateB);
+    event FundsReceived(address indexed sender, uint256 amount, uint256 blockNumber);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Caller is not the owner");
@@ -35,27 +35,26 @@ contract Bankroll {
         return lastAffiliateId;
     }
 
-    function receiveFunds(address affiliateA, address affiliateB) external payable {
-        uint256 affiliateAmount;
+    function receiveFunds() external payable {
         uint256 stakingAmount = msg.value;
 
-        if (affiliateA != address(0) && affiliateB != address(0)) {
-            affiliateAmount = msg.value / 4;
-            stakingAmount -= 2 * affiliateAmount;
-            receivedFundsPerAffiliatePerBlock[affiliateA][block.number] += affiliateAmount;
-            receivedFundsPerAffiliatePerBlock[affiliateB][block.number] += affiliateAmount;
-        } else if (affiliateA != address(0)) {
-            affiliateAmount = msg.value / 2;
-            stakingAmount -= affiliateAmount;
-            receivedFundsPerAffiliatePerBlock[affiliateA][block.number] += affiliateAmount;
-        } else if (affiliateB != address(0)) {
-            affiliateAmount = msg.value / 2;
-            stakingAmount -= affiliateAmount;
-            receivedFundsPerAffiliatePerBlock[affiliateB][block.number] += affiliateAmount;
-        }
+        // if (affiliateA != address(0) && affiliateB != address(0)) {
+        //     affiliateAmount = msg.value / 4;
+        //     stakingAmount -= 2 * affiliateAmount;
+        //     receivedFundsPerAffiliatePerBlock[affiliateA][block.number] += affiliateAmount;
+        //     receivedFundsPerAffiliatePerBlock[affiliateB][block.number] += affiliateAmount;
+        // } else if (affiliateA != address(0)) {
+        //     affiliateAmount = msg.value / 2;
+        //     stakingAmount -= affiliateAmount;
+        //     receivedFundsPerAffiliatePerBlock[affiliateA][block.number] += affiliateAmount;
+        // } else if (affiliateB != address(0)) {
+        //     affiliateAmount = msg.value / 2;
+        //     stakingAmount -= affiliateAmount;
+        //     receivedFundsPerAffiliatePerBlock[affiliateB][block.number] += affiliateAmount;
+        // }
 
         receivedFundsPerBlock[block.number] += stakingAmount;
-        emit FundsReceived(msg.sender, msg.value, block.number, affiliateA, affiliateB);
+        emit FundsReceived(msg.sender, msg.value, block.number);
     }
 
     function getReceivedFundsForAffiliateInPeriod(address affiliate, uint256 startBlock, uint256 endBlock) external view returns (uint256) {

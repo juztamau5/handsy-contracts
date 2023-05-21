@@ -221,7 +221,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const createPoolReceipt = await createPoolTx.wait();
 
     // retrieve the pool address from the PoolCreated event
-    const poolAddress = await waitForPoolCreatedEvent(classicFactory);
+    const poolAddress = "0x0000000000000000000000000000000000000000";
 
 
 
