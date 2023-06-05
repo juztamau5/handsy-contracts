@@ -2,13 +2,25 @@
 pragma solidity ^0.8.11;
 
 import "./Bank.sol";
+import "./interfaces/IAffiliate.sol";
 
-contract Affiliate {
+contract Affiliate is IAffiliate {
     // The bank contract.
     Bank public bankContract;
 
     // The maximum fee share per affiliate is 25%.
     uint256 constant public MAX_FEE_SHARE_PER_AFFILIATE = 25;
+
+    struct AffiliateInfo {
+        uint256 receivedFunds;
+        uint256 lastClaimedBlock;
+    }
+
+    // Total received funds.
+    uint256 public totalReceived;
+
+    // Mapping from affiliate's address to their AffiliateInfo struct.
+    mapping(address => AffiliateInfo) public affiliates;
 
     // Mapping from affiliate's address to a mapping from block number to received funds.
     mapping(address => mapping(uint256 => uint256)) private receivedFundsPerAffiliatePerBlock;
@@ -19,14 +31,11 @@ contract Affiliate {
     // Mapping from consumer's address to affiliate's address.
     mapping(address => address) private consumerToAffiliate;
 
-    // Event emitted when a consumer registers with an affiliate.
-    event ConsumerRegistered(address indexed consumer, address indexed affiliate);
-
     /**
      * @dev Modifier to check if the caller is the bank contract.
      */
     modifier onlyBankContract() {
-        require(msg.sender == bankContract, "Only the bank contract can call this function.");
+        require(msg.sender == address(bankContract), "Only the bank contract can call this function.");
         _;
     }
 
@@ -91,6 +100,11 @@ contract Affiliate {
         if (affiliate != address(0)) {
             uint256 affiliateShare = (MAX_FEE_SHARE_PER_AFFILIATE * totalAmount) / 100;
             receivedFundsPerAffiliatePerBlock[affiliate][block.number] += affiliateShare;
+            affiliates[affiliate].receivedFunds += affiliateShare;
+            totalReceived += affiliateShare;
+
+            emit RewardRecieved(affiliate, affiliateShare, block.number);
+
             return affiliateShare;
         }
         return 0;
@@ -113,7 +127,7 @@ contract Affiliate {
      * @param endBlock The end block.
      * @return The received funds.
      */
-    function getReceivedFundsForAffiliateInPeriod(address affiliate, uint256 startBlock, uint256 endBlock) external view returns (uint256) {
+    function getReceivedFundsForAffiliateInPeriod(address affiliate, uint256 startBlock, uint256 endBlock) public view returns (uint256) {
         uint256 totalFunds = 0;
         for (uint256 i = startBlock; i <= endBlock; i++) {
             totalFunds += getReceivedFundsForAffiliateInBlock(affiliate, i);
@@ -138,6 +152,8 @@ contract Affiliate {
         if (claimableRewards > 0) {
             bankContract.withdraw(claimableRewards);
             payable(affiliateAddress).transfer(claimableRewards);
+
+            emit RewardClaimed(affiliateAddress, claimableRewards, block.number);
         }
         affiliate.lastClaimedBlock = block.number;
     }

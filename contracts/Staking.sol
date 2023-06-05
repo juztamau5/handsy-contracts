@@ -1,64 +1,110 @@
 // SPDX-License-Identifier: Unlicense
+// This contract uses the Unlicense SPDX license identifier.
+
 pragma solidity ^0.8.11;
 
+// Importing necessary interfaces and contract.
 import "./interfaces/IHandsToken.sol";
+import "./interfaces/IStaking.sol";
 import "./Bank.sol";
 
-contract Staking {
+// Staking contract which enables users to stake and earn rewards.
+contract Staking is IStaking {
+
+    // Token contract of Hands Token
     IHandsToken private handsToken;
+    // The number of blocks for a staking period.
     uint256 public constant BLOCKS_PER_PERIOD = 6500;
+    // Decimal places for calculations.
     uint256 private constant DECIMALS = 1e18;
 
+    // Struct for a staker with amount staked and the last claimed block.
     struct Staker {
         uint256 stakedAmount;
         uint256 lastClaimedBlock;
     }
 
+    // Total amount staked across all stakers.
     uint256 public totalStaked;
+    // Last block number when the staking period ended.
     uint256 public lastPeriodEndBlock;
+    // Amount of ETH rewards per block.
     uint256 public ethPerBlock;
+    // Instance of the Bank contract.
     Bank public bankContract;
+
+    // Mapping of staker address to their Staker struct.
     mapping(address => Staker) public stakers;
+    // Mapping of block number to received funds for staking in that block.
     mapping(uint256 => uint256) private receivedFundsPerBlockForStaking;
 
+    // Constructor function to set the address of Hands Token.
     constructor(address _handsTokenAddress) {
         handsToken = IHandsToken(_handsTokenAddress);
         lastPeriodEndBlock = block.number;
     }
 
+    // Modifier to restrict function calls to the Bank contract only.
     modifier onlyBankContract() {
         require(msg.sender == address(bankContract), "Only bank contract");
         _;
     }
 
+    // Modifier to ensure that the bank contract is not initialized more than once.
     modifier bankNotInitialized() {
         require(address(bankContract) == address(0), "Bank contract already initialized");
         _;
     }
 
+    // Function to set the address of the Bank contract.
     function setBankContract(address _bankContractAddress) external bankNotInitialized {
         bankContract = Bank(_bankContractAddress);
     }
 
+    // Function to stake a certain amount of tokens.
     function stake(uint256 amount) external {
         handsToken.transferFrom(msg.sender, address(this), amount);
         totalStaked += amount;
         stakers[msg.sender].stakedAmount += amount;
         _claimRewards(msg.sender);
+
+        emit Staked(msg.sender, amount);
     }
 
+    // Function to unstake a certain amount of tokens.
     function unstake(uint256 amount) external {
         require(stakers[msg.sender].stakedAmount >= amount, "Insufficient staked amount");
         handsToken.transfer(msg.sender, amount);
         totalStaked -= amount;
         stakers[msg.sender].stakedAmount -= amount;
         _claimRewards(msg.sender);
+
+        emit Unstaked(msg.sender, amount);
     }
 
+    /**
+     * @dev View function to get the amount of funds received for staking in a given period
+     * @param startBlock Start block of the period
+    * @param endBlock End block of the period
+     */
+    function getReceivedFundsForStakingInPeriod(uint256 startBlock, uint256 endBlock) public view returns (uint256) {
+        uint256 totalFunds = 0;
+        for (uint256 i = startBlock; i <= endBlock; i++) {
+            totalFunds += receivedFundsPerBlockForStaking[i];
+        }
+        return totalFunds;
+    }
+
+    /**
+     * @dev Function to receive funds for staking
+     */
     function claimRewards() external {
         _claimRewards(msg.sender);
     }
 
+    /**
+     * @dev Function to receive funds for staking
+     */
     function _claimRewards(address stakerAddress) private {
         Staker storage staker = stakers[stakerAddress];
         if (block.number >= lastPeriodEndBlock + BLOCKS_PER_PERIOD) {
@@ -70,8 +116,14 @@ contract Staking {
             payable(stakerAddress).transfer(claimableRewards);
         }
         staker.lastClaimedBlock = block.number;
+        emit RewardsClaimed(stakerAddress, claimableRewards);
     }
 
+    /**
+     * @dev Function to calculate the amount of funds claimable by a given address
+     * @param stakerAddress Address of the staker
+     * @return Amount of funds claimable by the given address
+     */
     function _calculateRewards(address stakerAddress) private view returns (uint256) {
         Staker storage staker = stakers[stakerAddress];
         if (staker.stakedAmount == 0 || totalStaked == 0) {
@@ -131,17 +183,4 @@ contract Staking {
         receivedFundsPerBlockForStaking[blockNumber] += amount;
     }
 
-    /**
-     * @dev Returns the total funds received for staking in a given block range
-     * @param startBlock Starting block number for the period
-     * @param endBlock Ending block number for the period
-     * @return Total funds received for staking in the given period
-     */
-    function getReceivedFundsForStakingInPeriod(uint256 startBlock, uint256 endBlock) external view returns (uint256) {
-        uint256 totalFunds = 0;
-        for (uint256 i = startBlock; i <= endBlock; i++) {
-            totalFunds += receivedFundsPerBlockForStaking[i];
-        }
-        return totalFunds;
-    }
 }
