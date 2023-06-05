@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.11;
 
-interface IBankroll {
-    function receiveFunds() external payable;
-}
+import "./Bank.sol";
 
 contract Hands {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
     uint constant public REVEAL_TIMEOUT = 10 minutes; // Max delay of revelation phase
-    uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the Bankroll contract
+    uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the bank contract
     uint constant public MAX_POINTS_PER_ROUND = 3; // The maximum number of points per round
 
-    IBankroll private bankrollContract;
+    Bank private bankContract;
 
-    constructor(address _bankrollContractAddress) {
-        bankrollContract = IBankroll(_bankrollContractAddress);
+    constructor(address _bankContractAddress) {
+        bankContract = Bank(_bankContractAddress);
     }
 
 
@@ -199,15 +197,18 @@ contract Hands {
         if(game.pointsA == MAX_POINTS_PER_ROUND || game.pointsB == MAX_POINTS_PER_ROUND) {
             //get winner
             address payable winner;
+            address payable loser;
             if(game.pointsA == MAX_POINTS_PER_ROUND) {
                 winner = game.playerA;
+                loser = game.playerB;
             } else {
                 winner = game.playerB;
+                loser = game.playerA;
             }
 
             emit GameOutcome(gameId, outcome);
 
-            _payWinner(gameId, winner);
+            _payWinner(gameId, winner, loser);
             _resetGame(gameId);
         }
     }
@@ -232,13 +233,13 @@ contract Hands {
         }
     }
 
-    function _payWinner(uint gameId, address winner) private {
+    function _payWinner(uint gameId, address winner, address loser) private {
         uint total = games[gameId].bet * 2;
         uint fee = (total * FEE_PERCENTAGE) / 100; // Calculate the fee
         uint payout = total - fee;
 
-        // Transfer the fee to the Bankroll contract
-        bankrollContract.receiveFunds{value: fee}();
+        // Transfer the fee to the bank contract
+        bankContract.receiveFunds{value: fee}(winner, loser);
 
         //Pay winner
         (bool success, ) = winner.call{value: payout}("");
