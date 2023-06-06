@@ -40,8 +40,6 @@ interface DeployedContracts {
     Hands: string;
     Bankroll: string;
     Staking: string;
-    LpStaking: string;
-    Pool: string;
 }
 
 interface DeployedAbis {
@@ -49,7 +47,6 @@ interface DeployedAbis {
     Hands: any;
     Bankroll: any;
     Staking: any;
-    LpStaking: any;
 }
 
 const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
@@ -185,43 +182,40 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const handsTokenContractAddress = handsTokenContract.address;
     console.log(`HandsToken was deployed to ${handsTokenContractAddress}`);
 
+
     
+    //DEPLOY AFFILIATE CONTRACT
 
-    // CREATE LIQUIDITY WETH/HANDS AND RECIEVE LP TOKEN
+    // Load the artifact of the Affiliate contract you want to deploy.
+    const affiliateArtifact = await deployer.loadArtifact("Affiliate");
 
-    // get weth token address
-    const wethTokenAddress = dependencyContracts.wETH;
-    const wethTokenAbi = dependencyAbis.wETH;
-    const wethTokenContract = new ethers.Contract(wethTokenAddress, wethTokenAbi, wallet);
+    // Deploy Affiliate contract
+    const affiliateContract = await deployer.deploy(affiliateArtifact);
 
-    // get hands token address
-    const handsTokenAddress = handsTokenContractAddress;
-    const handsTokenAbi = handsTokenArtifact.abi;
-    const handsTokenContract_ = new ethers.Contract(handsTokenAddress, handsTokenAbi, wallet);
+    // Show the Affiliate contract info
+    const affiliateContractAddress = affiliateContract.address;
+    console.log(`Affiliate was deployed to ${affiliateContractAddress}`);
 
-    // get classic factory address and abi
-    const classicFactoryAddress = dependencyContracts.classicFactory;
-    const classicFactoryAbi = dependencyAbis.classicFactory;
 
-    //get router address and abi
-    const routerAddress = dependencyContracts.router;
-    const routerAbi = dependencyAbis.router;
 
-    // instantiate the ClassicFactory contract
-    const classicFactory = new ethers.Contract(classicFactoryAddress, classicFactoryAbi, wallet);
+    //DEPLOY STAKING CONTRACT
 
-    // instantiate the Router contract
-    const router = new ethers.Contract(routerAddress, routerAbi, wallet);
+    // Load the artifact of the Staking contract you want to deploy.
+    const stakingArtifact = await deployer.loadArtifact("Staking");
 
-    // create a new liquidity pool for HANDS and WETH tokens
-    const parameterTypes = ['address', 'address'];
-    const parameters = [handsTokenAddress, wethTokenAddress];
-    const encodedData = ethers.utils.defaultAbiCoder.encode(parameterTypes, parameters);
-    const createPoolTx = await router.createPool(classicFactoryAddress, encodedData);
-    const createPoolReceipt = await createPoolTx.wait();
+    // Estimate Staking contract deployment fee
+    const stakingDeploymentFee = await deployer.estimateDeployFee(stakingArtifact, [handsTokenContractAddress]);
 
-    // retrieve the pool address from the PoolCreated event
-    const poolAddress = "0x0000000000000000000000000000000000000000";
+    const parsedStakingFee = ethers.utils.formatEther(stakingDeploymentFee.toString());
+    console.log(`The Staking deployment is estimated to cost ${parsedStakingFee} ETH`);
+
+    // Deploy Staking contract, passing the addresses of the deployed HandsToken and Bankroll contracts to the constructor
+    const stakingContract = await deployer.deploy(stakingArtifact, [handsTokenContractAddress]);
+
+    // Show the Staking contract info
+    const stakingContractAddress = stakingContract.address;
+    console.log(`Staking was deployed to ${stakingContractAddress}`);
+    
 
 
 
@@ -232,67 +226,17 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const bankrollArtifact = await deployer.loadArtifact("Bankroll");
 
     // Deploy Bankroll contract
-    const bankrollContract = await deployer.deploy(bankrollArtifact);
+    const bankrollContract = await deployer.deploy(bankrollArtifact, [affiliateContractAddress, stakingContractAddress]);
 
     // Show the Bankroll contract info
     const bankrollContractAddress = bankrollContract.address;
     console.log(`Bankroll was deployed to ${bankrollContractAddress}`);
 
-
-
-
-    //DEPLOY STAKING CONTRACT
-
-    // Load the artifact of the Staking contract you want to deploy.
-    const stakingArtifact = await deployer.loadArtifact("HandsStaking");
-
-    // Estimate Staking contract deployment fee
-    const stakingDeploymentFee = await deployer.estimateDeployFee(stakingArtifact, [handsTokenContractAddress, bankrollContractAddress]);
-
-    const parsedStakingFee = ethers.utils.formatEther(stakingDeploymentFee.toString());
-    console.log(`The Staking deployment is estimated to cost ${parsedStakingFee} ETH`);
-
-    // Deploy Staking contract, passing the addresses of the deployed HandsToken and Bankroll contracts to the constructor
-    const stakingContract = await deployer.deploy(stakingArtifact, [handsTokenContractAddress, bankrollContractAddress]);
-
-    // Show the Staking contract info
-    const stakingContractAddress = stakingContract.address;
-    console.log(`Staking was deployed to ${stakingContractAddress}`);
-
-
-
-
-
-    //DEPLOY LP STACKING CONTRACT
-
-    // Load the artifact of the LPStaking contract you want to deploy.
-    const lpStakingArtifact = await deployer.loadArtifact("LPRewardsStaking");
-
-    // Estimate LPStaking contract deployment fee
-    const lpStakingDeploymentFee = await deployer.estimateDeployFee(lpStakingArtifact, [poolAddress, handsTokenContractAddress, bankrollContractAddress]);
-
-    const parsedLpStakingFee = ethers.utils.formatEther(lpStakingDeploymentFee.toString());
-    console.log(`The LPStaking deployment is estimated to cost ${parsedLpStakingFee} ETH`);
-
-    // Deploy LPStaking contract, passing the addresses of the deployed LP POOL TOKEN and HandsToken and Bankroll contracts to the constructor
-    const lpStakingContract = await deployer.deploy(lpStakingArtifact, [poolAddress, handsTokenContractAddress, bankrollContractAddress]);
-
-    //Get HandsToken balance
-    const handsTokenBalance = await handsTokenContract.balanceOf(wallet.address);
-    console.log(`HandsToken balance: ${handsTokenBalance/1e18}`);
-
-    //approve the LPStaking contract to spend the HandsToken
-    const approveTx = await handsTokenContract.approve(lpStakingContract.address, ethers.utils.parseUnits("700000", 18));
-    await approveTx.wait();
-
-    //send 70% of the HandsToken supply to the LPStaking contract
-    const reciept = await handsTokenContract.transfer(lpStakingContract.address, ethers.utils.parseUnits("700000", 18));
-    await reciept.wait();
-
-    // Show the LPStaking contract info
-    const lpStakingContractAddress = lpStakingContract.address;
-    console.log(`LPStaking was deployed to ${lpStakingContractAddress}`);
-
+    //set banking contract for both affiliate and staking
+    const setBankForAffiliateTx = await affiliateContract.setBankContract(bankrollContractAddress);
+    console.log(`Affiliate contract setBankContract tx: ${setBankForAffiliateTx.hash}`);
+    const setBankForStakingTx = await stakingContract.setBankContract(bankrollContractAddress);
+    console.log(`Staking contract setBankContract tx: ${setBankForStakingTx.hash}`);
 
 
 
@@ -324,16 +268,13 @@ export default async function (hre: HardhatRuntimeEnvironment) {
         HandsToken: handsTokenContractAddress,
         Bankroll: bankrollContractAddress,
         Staking: stakingContractAddress,
-        LpStaking: lpStakingContractAddress,
         Hands: handsContractAddress,
-        Pool: poolAddress
     };
 
     const deployedAbis: DeployedAbis = {
-        HandsToken: handsTokenAbi,
+        HandsToken: handsTokenArtifact.abi,
         Bankroll: bankrollArtifact.abi,
         Staking: stakingArtifact.abi,
-        LpStaking: lpStakingArtifact.abi,
         Hands: handsArtifact.abi
     };
 
