@@ -74,11 +74,6 @@ contract Hands {
         _;
     }
 
-    function _generateGameId() private returns (uint) {
-        lastGameId += 1;
-        return lastGameId;
-    }
-
     function register() public payable validBet isNotAlreadyInGame returns (uint) {
         uint bet = msg.value;
         uint gameId;
@@ -90,7 +85,8 @@ contract Hands {
             playerGame[msg.sender] = gameId;
             emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
         } else {
-            gameId = _generateGameId();
+            lastGameId += 1;
+            gameId = lastGameId;
             games[gameId] = Game({
                 playerA: payable(msg.sender),
                 playerB: payable(address(0)),
