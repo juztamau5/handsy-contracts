@@ -8,13 +8,13 @@ contract Hands {
     uint constant public REVEAL_TIMEOUT = 10 minutes; // Max delay of revelation phase
     uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the bank contract
     uint constant public MAX_POINTS_PER_ROUND = 3; // The maximum number of points per round
+    uint constant public COMMIT_TIMEOUT = 10 minutes; // Max delay of commit phase
 
     Bank private bankContract;
 
     constructor(address _bankContractAddress) {
         bankContract = Bank(_bankContractAddress);
     }
-
 
     enum Moves {None, Rock, Paper, Scissors}
     enum Outcomes {None, PlayerA, PlayerB, Draw} // Possible outcomes
@@ -34,10 +34,13 @@ contract Hands {
 
     uint private lastGameId;
     mapping(uint => uint) private firstReveal;
+    mapping(uint => uint) private firstCommit; // Added this to track the time of the first commit
     mapping(uint => Game) private games;
     mapping(address => uint) public playerGame;
     mapping(uint => uint) public waitingPlayers;
 
+
+    // Events
     event PlayersMatched(uint indexed gameId, address indexed playerA, address indexed playerB);
     event PlayerRegistered(uint indexed gameId, address indexed playerAddress);
     event PlayerWaiting(uint indexed gameId, uint bet);
@@ -45,14 +48,29 @@ contract Hands {
     event MoveCommitted(uint indexed gameId, address indexed playerAddress, uint round);
     event NewRound(uint indexed gameId, uint round, uint pointsA, uint pointsB);
     event MoveRevealed(uint indexed gameId, address indexed playerAddress, Moves move, uint round);
+    event PlayerLeft(uint indexed gameId, address indexed playerAddress, uint round);
+    event PlayerCancelled(uint indexed gameId, address indexed playerAddress);
 
-    modifier validBet() {
-        require(msg.value >= BET_MIN, "Bet must be at least the minimum bet amount");
+    // Modifiers
+    modifier validBet() { require(msg.value >= BET_MIN, "Bet must be at least the minimum bet amount"); _;}
+    modifier isNotAlreadyInGame() { require(playerGame[msg.sender] == 0, "Player already in game"); _;}
+    modifier isRegistered(uint gameId) { require(playerGame[msg.sender] == gameId, "Player not registered"); _; }
+    modifier commitPhaseEnded(uint gameId) {
+        require(games[gameId].encrMovePlayerA != 0x0 && games[gameId].encrMovePlayerB != 0x0 || 
+                (firstCommit[gameId] != 0 && block.timestamp > firstCommit[gameId] + COMMIT_TIMEOUT), 
+                "Commit phase not ended");
+        _;
+    }    
+    modifier hasNotRevealed(uint gameId) {
+        require(msg.sender == games[gameId].playerA && games[gameId].movePlayerA == Moves.None ||
+                msg.sender == games[gameId].playerB && games[gameId].movePlayerB == Moves.None,
+                "Player already revealed");
         _;
     }
-
-    modifier isNotAlreadyInGame() {
-        require(playerGame[msg.sender] == 0, "Player already in game");
+    modifier revealPhaseEnded(uint gameId) {
+        require((games[gameId].movePlayerA != Moves.None && games[gameId].movePlayerB != Moves.None) ||
+                (firstReveal[gameId] != 0 && block.timestamp > firstReveal[gameId] + REVEAL_TIMEOUT),
+                "Reveal phase not ended");
         _;
     }
 
@@ -94,6 +112,40 @@ contract Hands {
         return gameId;
     }
 
+    function cancel(uint gameId) public {
+        Game storage game = games[gameId];
+        require(game.playerA == msg.sender && game.playerB == payable(address(0)), "Cannot cancel this game");
+
+        (bool success, ) = payable(msg.sender).call{value: game.bet}("");
+        require(success, "Transfer failed");
+
+        emit PlayerCancelled(gameId, msg.sender);
+
+        delete games[gameId];
+        delete playerGame[msg.sender];
+    }
+
+    function leave(uint gameId) public isRegistered(gameId) {
+        Game storage game = games[gameId];
+        require(game.playerA == msg.sender || game.playerB == msg.sender, "Not player of this game");
+
+        // Pay remaining player
+        address remainingPlayer = game.playerA == msg.sender ? game.playerB : game.playerA;
+        _payWinner(gameId, remainingPlayer, msg.sender);
+
+        //Set removed player to address(0)
+        if (game.playerA == msg.sender) {
+            game.playerA = payable(address(0));
+        } else {
+            game.playerB = payable(address(0));
+        }
+
+        // Remove player from game
+        delete playerGame[msg.sender];
+
+        emit PlayerLeft(gameId, msg.sender, game.round);
+    }
+
     //send the encrypted move to the contract
     function commit(uint gameId, bytes32 encrMove) public isRegistered(gameId) {
         Game storage game = games[gameId];
@@ -105,24 +157,12 @@ contract Hands {
             require(game.encrMovePlayerB == 0x0, "Player already committed");
             game.encrMovePlayerB = encrMove;
         }
+
+        if (firstCommit[gameId] == 0) {
+            firstCommit[gameId] = block.timestamp;
+        }
+
         emit MoveCommitted(gameId, msg.sender, game.round);
-    }
-
-    modifier isRegistered(uint gameId) {
-        require(playerGame[msg.sender] == gameId, "Player not registered");
-        _;
-    }
-
-    modifier commitPhaseEnded(uint gameId) {
-        require(games[gameId].playerA != address(0) && games[gameId].playerB != address(0), "Commit phase not ended");
-        _;
-    }
-
-    modifier hasNotRevealed(uint gameId) {
-        require(msg.sender == games[gameId].playerA && games[gameId].movePlayerA == Moves.None ||
-                msg.sender == games[gameId].playerB && games[gameId].movePlayerB == Moves.None,
-                "Player already revealed");
-        _;
     }
 
     function reveal(uint gameId, string memory clearMove) public isRegistered(gameId) commitPhaseEnded(gameId) hasNotRevealed(gameId) returns (Moves) {
@@ -167,13 +207,6 @@ contract Hands {
         } else {
             return 0;
         }
-    }
-
-    modifier revealPhaseEnded(uint gameId) {
-        require((games[gameId].movePlayerA != Moves.None && games[gameId].movePlayerB != Moves.None) ||
-                (firstReveal[gameId] != 0 && block.timestamp > firstReveal[gameId] + REVEAL_TIMEOUT),
-                "Reveal phase not ended");
-        _;
     }
 
     function _handleRound(uint gameId, Outcomes outcome) private {
