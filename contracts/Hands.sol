@@ -33,8 +33,8 @@ contract Hands {
     }
 
     uint private lastGameId;
-    mapping(uint => uint) private firstReveal;
-    mapping(uint => uint) private firstCommit; // Added this to track the time of the first commit
+    mapping(uint => uint) private commitPhaseStart;
+    mapping(uint => uint) private revealPhaseStart; // Added this to track the time of the first commit
     mapping(uint => Game) private games;
     mapping(address => uint) public playerGame;
     mapping(uint => uint) public waitingPlayers;
@@ -57,19 +57,35 @@ contract Hands {
     modifier isRegistered(uint gameId) { require(playerGame[msg.sender] == gameId, "Player not registered"); _; }
     modifier commitPhaseEnded(uint gameId) {
         require(games[gameId].encrMovePlayerA != 0x0 && games[gameId].encrMovePlayerB != 0x0 || 
-                (firstCommit[gameId] != 0 && block.timestamp > firstCommit[gameId] + COMMIT_TIMEOUT), 
+                (commitPhaseStart[gameId] != 0 && block.timestamp > commitPhaseStart[gameId] + COMMIT_TIMEOUT), 
                 "Commit phase not ended");
         _;
-    }    
+    }
+    modifier isCommitPhase(uint gameId) {
+        if(commitPhaseStart[gameId] != 0 && block.timestamp > commitPhaseStart[gameId] + COMMIT_TIMEOUT) {
+            _abruptFinish(gameId);
+        }
+        require(games[gameId].encrMovePlayerA == 0x0 || games[gameId].encrMovePlayerB == 0x0, "Commit phase ended");
+        _;
+    }   
     modifier hasNotRevealed(uint gameId) {
         require(msg.sender == games[gameId].playerA && games[gameId].movePlayerA == Moves.None ||
                 msg.sender == games[gameId].playerB && games[gameId].movePlayerB == Moves.None,
                 "Player already revealed");
         _;
     }
+    modifier isRevealPhase(uint gameId) {
+        if (revealPhaseStart[gameId] != 0 && block.timestamp > revealPhaseStart[gameId] + REVEAL_TIMEOUT) {
+            _abruptFinish(gameId);
+        }
+        require((games[gameId].encrMovePlayerA != 0x0 && games[gameId].encrMovePlayerB != 0x0) ||
+                (revealPhaseStart[gameId] != 0 && block.timestamp < revealPhaseStart[gameId] + REVEAL_TIMEOUT),
+                "Reveal phase not started");
+        _;
+    }
     modifier revealPhaseEnded(uint gameId) {
         require((games[gameId].movePlayerA != Moves.None && games[gameId].movePlayerB != Moves.None) ||
-                (firstReveal[gameId] != 0 && block.timestamp > firstReveal[gameId] + REVEAL_TIMEOUT),
+                (revealPhaseStart[gameId] != 0 && block.timestamp > revealPhaseStart[gameId] + REVEAL_TIMEOUT),
                 "Reveal phase not ended");
         _;
     }
@@ -83,6 +99,7 @@ contract Hands {
             waitingPlayers[bet] = 0;
             games[gameId].playerB = payable(msg.sender);
             playerGame[msg.sender] = gameId;
+            commitPhaseStart[gameId] = block.timestamp;
             emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
         } else {
             lastGameId += 1;
@@ -143,7 +160,7 @@ contract Hands {
     }
 
     //send the encrypted move to the contract
-    function commit(uint gameId, bytes32 encrMove) public isRegistered(gameId) {
+    function commit(uint gameId, bytes32 encrMove) public isRegistered(gameId) isCommitPhase(gameId) {
         Game storage game = games[gameId];
         require(msg.sender == game.playerA || msg.sender == game.playerB, "Player not in game");
         if (msg.sender == game.playerA) {
@@ -154,14 +171,16 @@ contract Hands {
             game.encrMovePlayerB = encrMove;
         }
 
-        if (firstCommit[gameId] == 0) {
-            firstCommit[gameId] = block.timestamp;
+        //Check if last player committed
+        //If so, start reveal phase
+        if (game.encrMovePlayerA != 0x0 && game.encrMovePlayerB != 0x0) {
+            revealPhaseStart[gameId] = block.timestamp;
         }
 
         emit MoveCommitted(gameId, msg.sender, game.round);
     }
 
-    function reveal(uint gameId, string memory clearMove) public isRegistered(gameId) commitPhaseEnded(gameId) hasNotRevealed(gameId) returns (Moves) {
+    function reveal(uint gameId, string memory clearMove) public isRegistered(gameId) commitPhaseEnded(gameId) hasNotRevealed(gameId) isRevealPhase(gameId) returns (Moves) {
         bytes32 encrMove = sha256(abi.encodePacked(clearMove));
         Moves move = Moves(getFirstChar(clearMove));
 
@@ -180,9 +199,9 @@ contract Hands {
 
         emit MoveRevealed(gameId, msg.sender, move, game.round);
 
-        if (firstReveal[gameId] == 0) {
-            firstReveal[gameId] = block.timestamp;
-        }
+        // if (firstReveal[gameId] == 0) {
+        //     firstReveal[gameId] = block.timestamp;
+        // }
 
         //call getOutcome if both players have revealed their moves
         if (game.movePlayerA != Moves.None && game.movePlayerB != Moves.None) {
@@ -242,6 +261,33 @@ contract Hands {
         }
     }
 
+    function _abruptFinish(uint gameId) private {
+        //Check who has not revealed or committed
+        Game storage game = games[gameId];
+        address payable stalledPlayer;
+        address payable winningPlayer;
+        if (game.encrMovePlayerA == 0x0) {
+            stalledPlayer = game.playerA;
+            winningPlayer = game.playerB;
+        } else if (game.encrMovePlayerB == 0x0) {
+            stalledPlayer = game.playerB;
+            winningPlayer = game.playerA;
+        } else if (game.movePlayerA == Moves.None) {
+            stalledPlayer = game.playerA;
+            winningPlayer = game.playerB;
+        } else if (game.movePlayerB == Moves.None) {
+            stalledPlayer = game.playerB;
+            winningPlayer = game.playerA;
+        }
+
+        //pay winning player
+        _payWinner(gameId, winningPlayer, stalledPlayer);
+
+        //reset game
+        _resetGame(gameId);
+
+    }
+
     function _getOutcome(uint gameId) private isRegistered(gameId) revealPhaseEnded(gameId) returns (Outcomes) {
         Game storage game = games[gameId];
         Outcomes outcome = _computeOutcome(game.movePlayerA, game.movePlayerB);
@@ -280,7 +326,8 @@ contract Hands {
         delete playerGame[games[gameId].playerA];
         delete playerGame[games[gameId].playerB];
         delete games[gameId];
-        delete firstReveal[gameId];
+        delete commitPhaseStart[gameId];
+        delete revealPhaseStart[gameId];
     }
 
     function _resetRound(uint gameId) private {  
@@ -289,6 +336,7 @@ contract Hands {
         game.movePlayerB = Moves.None;
         game.encrMovePlayerA = 0x0;
         game.encrMovePlayerB = 0x0;
-        delete firstReveal[gameId];
+        commitPhaseStart[gameId] = block.timestamp;
+        delete revealPhaseStart[gameId];
     }
 }
