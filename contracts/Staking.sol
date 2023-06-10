@@ -14,7 +14,7 @@ contract Staking is IStaking {
     // Token contract of Hands Token
     IHandsToken private handsToken;
     // The number of blocks for a staking period.
-    uint256 public constant BLOCKS_PER_PERIOD = 6500;
+    uint256 public constant BLOCKS_PER_PERIOD = 10;
     // Decimal places for calculations.
     uint256 private constant DECIMALS = 1e18;
 
@@ -172,6 +172,16 @@ contract Staking is IStaking {
      */
     function viewTotalStaked() external view returns (uint256) {
         return totalStaked;
+    }
+
+    /**
+     * @dev Returns the amount of funds received for staking in a given period
+     * @param startBlock Start block of the period
+     * @param endBlock End block of the period
+     * @return Amount of funds received for staking in the given period
+     */
+    function viewReceivedFundsForStaking(uint256 startBlock, uint256 endBlock) external view returns (uint256) {
+        return getReceivedFundsForStakingInPeriod(startBlock, endBlock);
     }
 
     /**

@@ -62,6 +62,8 @@ contract Affiliate is IAffiliate {
     function registerAsConsumer(address affiliate) external {
         // Check if this consumer has already registered with an affiliate.
         require(consumerToAffiliate[msg.sender] == address(0), "Consumer has already registered.");
+        // Make sure the affiliate is not the sender.
+        require(affiliate != msg.sender, "Affiliate cannot be the consumer.");
 
         // Add the consumer to the list of this affiliate's consumers.
         affiliateToConsumers[affiliate].push(msg.sender);
@@ -168,9 +170,7 @@ contract Affiliate is IAffiliate {
         if (affiliate.receivedFunds == 0 || totalReceived == 0) {
             return 0;
         }
-        uint256 claimableBlocks = block.number - affiliate.lastClaimedBlock;
-        uint256 affiliateShare = (affiliate.receivedFunds * 1e18) / totalReceived;
-        return (getReceivedFundsForAffiliateInPeriod(affiliateAddress, affiliate.lastClaimedBlock, block.number) * affiliateShare) / 1e18;
+        return getReceivedFundsForAffiliateInPeriod(affiliateAddress, affiliate.lastClaimedBlock, block.number);
     }
 
     /**

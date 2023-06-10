@@ -40,6 +40,7 @@ interface DeployedContracts {
     Hands: string;
     Bankroll: string;
     Staking: string;
+    Affiliate: string;
 }
 
 interface DeployedAbis {
@@ -47,6 +48,7 @@ interface DeployedAbis {
     Hands: any;
     Bankroll: any;
     Staking: any;
+    Affiliate: any;
 }
 
 const fetchDependencyAbis = async (): Promise<DependencyAbis> => {
@@ -269,13 +271,15 @@ export default async function (hre: HardhatRuntimeEnvironment) {
         Bankroll: bankrollContractAddress,
         Staking: stakingContractAddress,
         Hands: handsContractAddress,
+        Affiliate: affiliateContractAddress,
     };
 
     const deployedAbis: DeployedAbis = {
         HandsToken: handsTokenArtifact.abi,
         Bankroll: bankrollArtifact.abi,
         Staking: stakingArtifact.abi,
-        Hands: handsArtifact.abi
+        Hands: handsArtifact.abi,
+        Affiliate: affiliateArtifact.abi,
     };
 
     setLocalContractFile(
