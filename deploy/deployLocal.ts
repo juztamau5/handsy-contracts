@@ -38,7 +38,7 @@ interface DependencyContracts {
 interface DeployedContracts {
     HandsToken: string;
     Hands: string;
-    Bankroll: string;
+    Bank: string;
     Staking: string;
     Affiliate: string;
 }
@@ -46,7 +46,7 @@ interface DeployedContracts {
 interface DeployedAbis {
     HandsToken: any;
     Hands: any;
-    Bankroll: any;
+    Bank: any;
     Staking: any;
     Affiliate: any;
 }
@@ -151,7 +151,7 @@ function waitForPoolCreatedEvent(contract: any): Promise<string> {
 }
 
 export default async function (hre: HardhatRuntimeEnvironment) {
-    console.log(`Running deploy script for the Hands and Bankroll contracts`);
+    console.log(`Running deploy script for the Hands and bank contracts`);
 
     //Fetch wallet and deployer
     const l2Provider = new Provider("http://localhost:3050");
@@ -177,7 +177,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     // Set the premintReceiver, premintAmount, and supplyCap according to your requirements.
     const premintReceiver = wallet.address;
     const premintAmount = ethers.utils.parseUnits("1000000", 18);
-    const supplyCap = ethers.utils.parseUnits("10000000", 18);
+    const supplyCap = ethers.utils.parseUnits("1000000", 18);
 
     // Deploy the HandsToken contract
     const handsTokenContract = await deployer.deploy(handsTokenArtifact, [premintReceiver, premintAmount, supplyCap]);
@@ -211,7 +211,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const parsedStakingFee = ethers.utils.formatEther(stakingDeploymentFee.toString());
     console.log(`The Staking deployment is estimated to cost ${parsedStakingFee} ETH`);
 
-    // Deploy Staking contract, passing the addresses of the deployed HandsToken and Bankroll contracts to the constructor
+    // Deploy Staking contract, passing the addresses of the deployed HandsToken and bank contracts to the constructor
     const stakingContract = await deployer.deploy(stakingArtifact, [handsTokenContractAddress]);
 
     // Show the Staking contract info
@@ -222,23 +222,29 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
 
 
-    //DEPLOY BANKROLL CONTRACT
+    //DEPLOY bank CONTRACT
 
-    // Load the artifact of the Bankroll contract you want to deploy.
-    const bankrollArtifact = await deployer.loadArtifact("Bankroll");
+    // Load the artifact of the bank contract you want to deploy.
+    const bankArtifact = await deployer.loadArtifact("Bank");
 
-    // Deploy Bankroll contract
-    const bankrollContract = await deployer.deploy(bankrollArtifact, [affiliateContractAddress, stakingContractAddress]);
+    // Deploy bank contract
+    const bankContract = await deployer.deploy(bankArtifact, [affiliateContractAddress, stakingContractAddress]);
 
-    // Show the Bankroll contract info
-    const bankrollContractAddress = bankrollContract.address;
-    console.log(`Bankroll was deployed to ${bankrollContractAddress}`);
+    // Show the bank contract info
+    const bankContractAddress = bankContract.address;
+    console.log(`bank was deployed to ${bankContractAddress}`);
 
-    //set banking contract for both affiliate and staking
-    const setBankForAffiliateTx = await affiliateContract.setBankContract(bankrollContractAddress);
-    console.log(`Affiliate contract setBankContract tx: ${setBankForAffiliateTx.hash}`);
-    const setBankForStakingTx = await stakingContract.setBankContract(bankrollContractAddress);
-    console.log(`Staking contract setBankContract tx: ${setBankForStakingTx.hash}`);
+    // //set banking contract for both affiliate and staking
+    // console.log(`Owner of the Affiliate contract: ${await affiliateContract.owner()}`);
+    // console.log(`Wallet address: ${wallet.address}`);
+
+
+    // const setBankForAffiliateTx = await affiliateContract.setBankContract(bankContractAddress);
+    // await setBankForAffiliateTx.wait();
+    // //console.log(`Affiliate contract setBankContract tx: `);
+    // const setBankForStakingTx = await stakingContract.setBankContract(bankContractAddress);
+    // await setBankForStakingTx.wait();
+    // //console.log(`Staking contract setBankContract tx: ${setBankForStakingTx.hash}`);
 
 
 
@@ -249,13 +255,13 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const handsArtifact = await deployer.loadArtifact("Hands");
 
     // Estimate Hands contract deployment fee
-    const handsDeploymentFee = await deployer.estimateDeployFee(handsArtifact, [bankrollContractAddress]);
+    const handsDeploymentFee = await deployer.estimateDeployFee(handsArtifact, [bankContractAddress]);
 
     const parsedHandsFee = ethers.utils.formatEther(handsDeploymentFee.toString());
     console.log(`The Hands deployment is estimated to cost ${parsedHandsFee} ETH`);
 
-    // Deploy Hands contract, passing the address of the deployed Bankroll contract to the constructor
-    const handsContract = await deployer.deploy(handsArtifact, [bankrollContractAddress]);
+    // Deploy Hands contract, passing the address of the deployed bank contract to the constructor
+    const handsContract = await deployer.deploy(handsArtifact, [bankContractAddress]);
 
     // Show the Hands contract info
     const handsContractAddress = handsContract.address;
@@ -268,7 +274,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     //create new json file with all the contract addresses
     const deployedContracts: DeployedContracts = {
         HandsToken: handsTokenContractAddress,
-        Bankroll: bankrollContractAddress,
+        Bank: bankContractAddress,
         Staking: stakingContractAddress,
         Hands: handsContractAddress,
         Affiliate: affiliateContractAddress,
@@ -276,7 +282,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
     const deployedAbis: DeployedAbis = {
         HandsToken: handsTokenArtifact.abi,
-        Bankroll: bankrollArtifact.abi,
+        Bank: bankArtifact.abi,
         Staking: stakingArtifact.abi,
         Hands: handsArtifact.abi,
         Affiliate: affiliateArtifact.abi,

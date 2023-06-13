@@ -11,6 +11,9 @@ import "./Bank.sol";
 // Staking contract which enables users to stake and earn rewards.
 contract Staking is IStaking {
 
+    //start block
+    uint256 public initialBlock;
+
     // Token contract of Hands Token
     IHandsToken private handsToken;
     // The number of blocks for a staking period.
@@ -22,6 +25,7 @@ contract Staking is IStaking {
     struct Staker {
         uint256 stakedAmount;
         uint256 lastClaimedBlock;
+        uint256 stakeBlock; // Block number when the staker staked
     }
 
     // Total amount staked across all stakers.
@@ -37,11 +41,15 @@ contract Staking is IStaking {
     mapping(address => Staker) public stakers;
     // Mapping of block number to received funds for staking in that block.
     mapping(uint256 => uint256) private receivedFundsPerBlockForStaking;
+    // Mapping of total stakes per block.
+    mapping(uint256 => uint256) public totalStakedPerBlock;
+
 
     // Constructor function to set the address of Hands Token.
     constructor(address _handsTokenAddress) {
         handsToken = IHandsToken(_handsTokenAddress);
         lastPeriodEndBlock = block.number;
+        initialBlock = block.number;
     }
 
     // Modifier to restrict function calls to the Bank contract only.
@@ -65,9 +73,10 @@ contract Staking is IStaking {
     function stake(uint256 amount) external {
         handsToken.transferFrom(msg.sender, address(this), amount);
         totalStaked += amount;
-        stakers[msg.sender].stakedAmount += amount;
+        Staker storage staker = stakers[msg.sender];
+        staker.stakedAmount += amount;
         _claimRewards(msg.sender);
-
+        totalStakedPerBlock[block.number] = totalStaked; // Update totalStakedPerBlock to reflect total staked amount at this block
         emit Staked(msg.sender, amount);
     }
 
@@ -78,7 +87,7 @@ contract Staking is IStaking {
         totalStaked -= amount;
         stakers[msg.sender].stakedAmount -= amount;
         _claimRewards(msg.sender);
-
+        totalStakedPerBlock[block.number] = totalStaked; // Update totalStakedPerBlock to reflect total staked amount at this block
         emit Unstaked(msg.sender, amount);
     }
 
@@ -96,6 +105,24 @@ contract Staking is IStaking {
     }
 
     /**
+    * @dev Returns the total staked at a certain block
+    * @param blockNumber Block number
+    * @return Total amount staked at the given block
+    */
+    function getTotalStakedAtBlock(uint256 blockNumber) public view returns (uint256) {
+        require(blockNumber <= block.number, "Block not yet mined");
+        
+        for (uint i = blockNumber; i >= initialBlock; i--) {
+            if (totalStakedPerBlock[i] != 0) {
+                return totalStakedPerBlock[i];
+            }
+        }
+
+        // if no previous staking action is found, then total staked amount is 0
+        return 0;
+    }
+
+    /**
      * @dev Function to receive funds for staking
      */
     function claimRewards() external {
@@ -107,13 +134,9 @@ contract Staking is IStaking {
      */
     function _claimRewards(address stakerAddress) private {
         Staker storage staker = stakers[stakerAddress];
-        if (block.number >= lastPeriodEndBlock + BLOCKS_PER_PERIOD) {
-            _startNewPeriod();
-        }
         uint256 claimableRewards = _calculateRewards(stakerAddress);
         if (claimableRewards > 0) {
-            bankContract.withdraw(claimableRewards);
-            payable(stakerAddress).transfer(claimableRewards);
+            bankContract.withdraw(claimableRewards, stakerAddress);
         }
         staker.lastClaimedBlock = block.number;
         emit RewardsClaimed(stakerAddress, claimableRewards);
@@ -126,26 +149,17 @@ contract Staking is IStaking {
      */
     function _calculateRewards(address stakerAddress) private view returns (uint256) {
         Staker storage staker = stakers[stakerAddress];
-        if (staker.stakedAmount == 0 || totalStaked == 0) {
-            return 0;
+        uint256 totalRewards = 0;
+
+        for (uint256 i = staker.lastClaimedBlock + 1; i < block.number; ++i) {
+            uint256 totalStakedAtBlock = getTotalStakedAtBlock(i);
+            if (totalStakedAtBlock > 0) {
+                uint256 stakerShare = (staker.stakedAmount * 1e18) / totalStakedAtBlock;
+                uint256 blockReward = (receivedFundsPerBlockForStaking[i] * stakerShare) / 1e18;
+                totalRewards += blockReward;
+            }
         }
-        uint256 claimableBlocks = block.number - staker.lastClaimedBlock;
-        uint256 stakerShare = (staker.stakedAmount * DECIMALS) / totalStaked;
-        return (ethPerBlock * claimableBlocks * stakerShare) / DECIMALS;
-    }
-
-    /**
-     * @dev Starts a new period
-     */
-    function _startNewPeriod() private {
-        require(block.number >= lastPeriodEndBlock + BLOCKS_PER_PERIOD, "New period has not started yet");
-
-        uint256 startBlock = lastPeriodEndBlock + 1;
-        uint256 endBlock = startBlock + BLOCKS_PER_PERIOD - 1;
-        uint256 collectedEth = getReceivedFundsForStakingInPeriod(startBlock, endBlock);
-
-        ethPerBlock = (collectedEth * DECIMALS) / BLOCKS_PER_PERIOD;
-        lastPeriodEndBlock += BLOCKS_PER_PERIOD;
+        return totalRewards;
     }
 
     /**

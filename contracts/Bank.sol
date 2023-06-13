@@ -91,8 +91,11 @@ contract Bank {
      * @dev Allows the affiliate and contract to withdraw funds and emits a Withdrawal event
      * @param amount Amount to withdraw
      */
-    function withdraw(uint256 amount) external onlyAffiliateContract onlyStakingContract {
+    function withdraw(uint256 amount, address recipient) external onlyAffiliateContract onlyStakingContract {
         require(amount <= address(this).balance, "Not enough funds in the contract.");
-        payable(msg.sender).transfer(amount);
+        
+        // Transfer the funds to the recipient
+        (bool success, ) = payable(recipient).call{value: amount}("");
+        require(success, "Transfer failed.");
     }
 }

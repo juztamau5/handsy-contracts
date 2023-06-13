@@ -152,8 +152,7 @@ contract Affiliate is IAffiliate {
         AffiliateInfo storage affiliate = affiliates[affiliateAddress];
         uint256 claimableRewards = _calculateRewards(affiliateAddress);
         if (claimableRewards > 0) {
-            bankContract.withdraw(claimableRewards);
-            payable(affiliateAddress).transfer(claimableRewards);
+            bankContract.withdraw(claimableRewards, affiliateAddress);
 
             emit RewardClaimed(affiliateAddress, claimableRewards, block.number);
         }
