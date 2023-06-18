@@ -1,5 +1,11 @@
-import "@matterlabs/hardhat-zksync-deploy";
-import "@matterlabs/hardhat-zksync-solc";
+import "@nomiclabs/hardhat-waffle";
+import { HardhatUserConfig } from "hardhat/config";
+import { HttpNetworkUserConfig } from "hardhat/types";
+
+import "@typechain/hardhat";
+import "hardhat-deploy";
+import "hardhat-abi-exporter";
+import "hardhat-gas-reporter";
 
 // dynamically changes endpoints for local tests
 const zkSyncTestnet =
@@ -17,16 +23,17 @@ const zkSyncTestnet =
       };
 
 module.exports = {
+  
   zksolc: {
     version: "1.3.5",
     compilerSource: "binary",
     settings: {},
   },
-  defaultNetwork: "zkSyncTestnet",
+  defaultNetwork: "localhost",
+
 
   networks: {
     hardhat: {
-      zksync: true,
     },
     // load test network details
     zkSyncTestnet,

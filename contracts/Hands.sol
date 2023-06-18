@@ -2,6 +2,7 @@
 pragma solidity ^0.8.11;
 
 import "./Bank.sol";
+import "hardhat/console.sol";
 
 contract Hands {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
@@ -93,6 +94,8 @@ contract Hands {
     function register() public payable validBet isNotAlreadyInGame returns (uint) {
         uint bet = msg.value;
         uint gameId;
+
+        console.log("Registering player with bet %s", bet);
 
         if (waitingPlayers[bet] != 0) {
             gameId = waitingPlayers[bet];

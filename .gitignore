@@ -1,7 +1,10 @@
 node_modules
 artifacts-zk
+artifacts
 cache-zk
 local-dependency-contracts.json
 local-contracts.json
+typechain-types
+deployments
 
 *.me

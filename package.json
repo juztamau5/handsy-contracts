@@ -20,13 +20,22 @@
   "scripts": {
     "build": "yarn hardhat compile && cd ./syncswap-contracts && yarn build-zk && cd ..",
     "deploy-local": "NODE_ENV=test yarn hardhat deploy-zksync --script deployLocal.ts",
+    "deploy-local-hardhat": "yarn hardhat run --network localhost deploy/deployLocalHardhat.ts",
     "deploy-testnet": "hardhat run --network rinkeby scripts/deploy.ts",
     "deploy-mainnet": "hardhat run --network mainnet scripts/deploy.ts",
     "test": "NODE_ENV=test hardhat test"
   },
   "dependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
     "@openzeppelin/contracts": "^4.8.3",
+    "@typechain/ethers-v6": "^0.4.0",
+    "@typechain/hardhat": "^8.0.0",
     "@uniswap/v3-core": "^1.0.1",
-    "@uniswap/v3-periphery": "^1.4.3"
+    "@uniswap/v3-periphery": "^1.4.3",
+    "hardhat-abi-exporter": "^2.10.1",
+    "hardhat-deploy": "^0.11.30",
+    "hardhat-gas-reporter": "^1.0.9",
+    "typechain": "^8.2.0"
   }
 }

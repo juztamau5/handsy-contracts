@@ -34,5 +34,5 @@ interface IStaking {
     function viewClaimableRewards(address stakerAddress) external view returns (uint256);
 
     // Function to get the amount of funds received for staking in a specific period.
-    function getReceivedFundsForStakingInPeriod(uint256 startBlock, uint256 endBlock) external view returns (uint256);
+    function getReceivedFundsForStaking() external view returns (uint256);
 }
