@@ -13,6 +13,7 @@
     "ethers": "^5.5.4",
     "hardhat": "^2.8.4",
     "mocha": "^10.0.0",
+    "solhint": "^3.4.1",
     "ts-node": "^10.5.0",
     "typescript": "^4.5.5",
     "zksync-web3": "^0.13.4"
@@ -23,6 +24,9 @@
     "deploy-local-hardhat": "yarn hardhat run --network localhost deploy/deployLocalHardhat.ts",
     "deploy-testnet": "hardhat run --network rinkeby scripts/deploy.ts",
     "deploy-mainnet": "hardhat run --network mainnet scripts/deploy.ts",
+    "lint": "yarn solhint && yarn slither",
+    "slither": "slither .",
+    "solhint": "solhint 'contracts/**/*.sol' --max-warnings 0",
     "test": "NODE_ENV=test hardhat test"
   },
   "dependencies": {
