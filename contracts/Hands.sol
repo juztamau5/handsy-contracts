@@ -39,6 +39,7 @@ contract Hands {
     mapping(uint => Game) private games;
     mapping(address => uint) public playerGame;
     mapping(uint => uint) public waitingPlayers;
+    mapping(string => uint) private passwordGames;
 
 
     // Events
@@ -134,6 +135,44 @@ contract Hands {
 
         emit PlayerRegistered(gameId, msg.sender);
         return gameId;
+    }
+
+    function createPasswordMatch(string memory passwordHash) external payable validBet isNotAlreadyInGame {
+        lastGameId++;
+        gameId = lastGameId;
+        games[gameId] = Game({
+            playerA: payable(msg.sender),
+            playerB: payable(address(0)),
+            bet: bet,
+            encrMovePlayerA: 0x0,
+            encrMovePlayerB: 0x0,
+            movePlayerA: Moves.None,
+            movePlayerB: Moves.None,
+            round: 0,
+            pointsA: 0,
+            pointsB: 0
+        });
+        playerGame[msg.sender] = lastGameId;
+        passwordGames[passwordHash] = lastGameId;
+        emit PlayerWaiting(lastGameId, bet);
+        emit PlayerRegistered(lastGameId, msg.sender);
+    }
+
+    function joinPasswordMatch(string memory password) external payable validBet isNotAlreadyInGame {
+        bytes32 passwordHash = sha256(abi.encodePacked(password));
+        require(passwordGames[passwordHash] > 0, "Game with the given password does not exist");
+        
+        uint gameId = passwordGames[passwordHash];
+
+        require(games[gameId].playerB == payable(address(0)), "Game already has two players");
+        require(games[gameId].bet == msg.value, "Bet does not match");
+        
+        passwordGames[passwordHash] = 0;
+        games[gameId].playerB = payable(msg.sender);
+        playerGame[msg.sender] = gameId;
+        commitPhaseStart[gameId] = block.timestamp;
+
+        emit PlayersMatched(gameId, game.playerA, game.playerB);
     }
 
     function cancel(uint gameId) public {
