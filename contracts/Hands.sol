@@ -145,9 +145,11 @@ contract Hands {
 
         emit PlayerCancelled(gameId, msg.sender);
 
+        delete playerGame[game.playerA];
+        delete playerGame[game.playerB];
+        delete playerGame[msg.sender];
         delete waitingPlayers[game.bet];
         delete games[gameId];
-        delete playerGame[msg.sender];
     }
 
     function leave(uint gameId) public isRegistered(gameId) {
@@ -167,9 +169,11 @@ contract Hands {
 
         emit GameOutcome(gameId, Outcomes.Left);
 
+        delete playerGame[game.playerA];
+        delete playerGame[game.playerB];
+        delete playerGame[msg.sender];
         delete waitingPlayers[game.bet];
         delete games[gameId];
-        delete playerGame[msg.sender];
 
         
     }
