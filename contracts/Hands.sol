@@ -6,10 +6,10 @@ import "hardhat/console.sol";
 
 contract Hands {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
-    uint constant public REVEAL_TIMEOUT = 10 minutes; // Max delay of revelation phase
+    uint constant public REVEAL_TIMEOUT = 2 minutes; // Max delay of revelation phase
     uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the bank contract
     uint constant public MAX_POINTS_PER_ROUND = 3; // The maximum number of points per round
-    uint constant public COMMIT_TIMEOUT = 10 minutes; // Max delay of commit phase
+    uint constant public COMMIT_TIMEOUT = 2 minutes; // Max delay of commit phase
 
     Bank private bankContract;
 
@@ -18,7 +18,7 @@ contract Hands {
     }
 
     enum Moves {None, Rock, Paper, Scissors}
-    enum Outcomes {None, PlayerA, PlayerB, Draw} // Possible outcomes
+    enum Outcomes {None, PlayerA, PlayerB, Draw, Left} // Possible outcomes
 
     struct Game {
         address payable playerA;
@@ -63,8 +63,12 @@ contract Hands {
         _;
     }
     modifier isCommitPhase(uint gameId) {
+        console.log("Commit phase start: %s", commitPhaseStart[gameId]);
+        console.log("Commit phase end: %s", commitPhaseStart[gameId] + COMMIT_TIMEOUT);
+        console.log("Current time: %s", block.timestamp);
         if(commitPhaseStart[gameId] != 0 && block.timestamp > commitPhaseStart[gameId] + COMMIT_TIMEOUT) {
             _abruptFinish(gameId);
+            return;
         }
         require(games[gameId].encrMovePlayerA == 0x0 || games[gameId].encrMovePlayerB == 0x0, "Commit phase ended");
         _;
@@ -76,12 +80,16 @@ contract Hands {
         _;
     }
     modifier isRevealPhase(uint gameId) {
+        console.log("Reveal phase start: %s", revealPhaseStart[gameId]);
+        console.log("Reveal phase end: %s", revealPhaseStart[gameId] + REVEAL_TIMEOUT);
+        console.log("Current time: %s", block.timestamp);
         if (revealPhaseStart[gameId] != 0 && block.timestamp > revealPhaseStart[gameId] + REVEAL_TIMEOUT) {
             _abruptFinish(gameId);
+            return;
         }
         require((games[gameId].encrMovePlayerA != 0x0 && games[gameId].encrMovePlayerB != 0x0) ||
                 (revealPhaseStart[gameId] != 0 && block.timestamp < revealPhaseStart[gameId] + REVEAL_TIMEOUT),
-                "Reveal phase not started");
+                "Is not reveal phase");
         _;
     }
     modifier revealPhaseEnded(uint gameId) {
@@ -137,6 +145,7 @@ contract Hands {
 
         emit PlayerCancelled(gameId, msg.sender);
 
+        delete waitingPlayers[game.bet];
         delete games[gameId];
         delete playerGame[msg.sender];
     }
@@ -156,10 +165,13 @@ contract Hands {
             game.playerB = payable(address(0));
         }
 
-        // Remove player from game
+        emit GameOutcome(gameId, Outcomes.Left);
+
+        delete waitingPlayers[game.bet];
+        delete games[gameId];
         delete playerGame[msg.sender];
 
-        emit PlayerLeft(gameId, msg.sender, game.round);
+        
     }
 
     //send the encrypted move to the contract
@@ -267,24 +279,45 @@ contract Hands {
     function _abruptFinish(uint gameId) private {
         //Check who has not revealed or committed
         Game storage game = games[gameId];
-        address payable stalledPlayer;
+        bool playerACommited = game.encrMovePlayerA != 0x0;
+        bool playerBCommited = game.encrMovePlayerB != 0x0;
+        bool playerARevealed = game.movePlayerA != Moves.None;
+        bool playerBRevealed = game.movePlayerB != Moves.None;
+        
         address payable winningPlayer;
-        if (game.encrMovePlayerA == 0x0) {
-            stalledPlayer = game.playerA;
-            winningPlayer = game.playerB;
-        } else if (game.encrMovePlayerB == 0x0) {
-            stalledPlayer = game.playerB;
+        address payable stalledPlayer;
+        bool bothStalled = false;
+
+        //if both players have not committed, refund both
+        if (!playerACommited && !playerBCommited) {
             winningPlayer = game.playerA;
-        } else if (game.movePlayerA == Moves.None) {
-            stalledPlayer = game.playerA;
-            winningPlayer = game.playerB;
-        } else if (game.movePlayerB == Moves.None) {
             stalledPlayer = game.playerB;
+            bothStalled = true;
+        } else if (!playerACommited) {
+            winningPlayer = game.playerB;
+            stalledPlayer = game.playerA;
+        } else if (!playerBCommited) {
             winningPlayer = game.playerA;
+            stalledPlayer = game.playerB;
+        } else if (!playerARevealed && !playerBRevealed) {
+            winningPlayer = game.playerA;
+            stalledPlayer = game.playerB;
+            bothStalled = true;
+        } else if (!playerARevealed) {
+            winningPlayer = game.playerB;
+            stalledPlayer = game.playerA;
+        } else if (!playerBRevealed) {
+            winningPlayer = game.playerA;
+            stalledPlayer = game.playerB;
         }
 
-        //pay winning player
-        _payWinner(gameId, winningPlayer, stalledPlayer);
+        emit GameOutcome(gameId, Outcomes.None);
+
+        if (bothStalled) {
+            _refund(gameId, winningPlayer, stalledPlayer);
+        } else {
+            _payWinner(gameId, winningPlayer, stalledPlayer);
+        }
 
         //reset game
         _resetGame(gameId);
@@ -323,6 +356,22 @@ contract Hands {
         (bool success, ) = winner.call{value: payout}("");
         require(success, "Transfer to Winner failed");
         
+    }
+
+    //function _refund similar to _paywinner still takes a fee for bankContract
+    function _refund(uint gameId, address payable playerA, address payable playerB) private {
+        uint total = games[gameId].bet * 2;
+        uint fee = (total * FEE_PERCENTAGE) / 100; // Calculate the fee
+        uint payout = total - fee;
+
+        // Transfer the fee to the bank contract
+        bankContract.receiveFunds{value: fee}(playerA, playerB);
+
+        //Pay players
+        (bool success, ) = playerA.call{value: payout / 2}("");
+        require(success, "Transfer to Player A failed");
+        (success, ) = playerB.call{value: payout / 2}("");
+        require(success, "Transfer to Player B failed");
     }
 
     function _resetGame(uint gameId) private {
