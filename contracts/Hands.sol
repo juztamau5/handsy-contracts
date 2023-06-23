@@ -39,7 +39,7 @@ contract Hands {
     mapping(uint => Game) private games;
     mapping(address => uint) public playerGame;
     mapping(uint => uint) public waitingPlayers;
-    mapping(string => uint) private passwordGames;
+    mapping(bytes32 => uint) private passwordGames;
 
 
     // Events
@@ -137,9 +137,10 @@ contract Hands {
         return gameId;
     }
 
-    function createPasswordMatch(string memory passwordHash) external payable validBet isNotAlreadyInGame {
+    function createPasswordMatch(bytes32 passwordHash) external payable validBet isNotAlreadyInGame {
         lastGameId++;
-        gameId = lastGameId;
+        uint bet = msg.value;
+        uint gameId = lastGameId;
         games[gameId] = Game({
             playerA: payable(msg.sender),
             playerB: payable(address(0)),
@@ -172,7 +173,7 @@ contract Hands {
         playerGame[msg.sender] = gameId;
         commitPhaseStart[gameId] = block.timestamp;
 
-        emit PlayersMatched(gameId, game.playerA, game.playerB);
+        emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
     }
 
     function cancel(uint gameId) public {
