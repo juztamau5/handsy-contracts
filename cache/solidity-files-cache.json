@@ -265,8 +265,8 @@
       ]
     },
     "/home/glockiana/Documents/incubator/gothands/contracts/contracts/Hands.sol": {
-      "lastModificationDate": 1687547550163,
-      "contentHash": "751a3a6484d7e5ba727cf4e74a7fa915",
+      "lastModificationDate": 1687619578209,
+      "contentHash": "c56f3b0c96615a30bcb40e63a0ff9cfe",
       "sourceName": "contracts/Hands.sol",
       "solcConfig": {
         "version": "0.8.17",

@@ -173,6 +173,7 @@ contract Hands {
         playerGame[msg.sender] = gameId;
         commitPhaseStart[gameId] = block.timestamp;
 
+        emit PlayerWaiting(gameId, games[gameId].bet);
         emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
     }
 
