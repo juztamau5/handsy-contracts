@@ -43,6 +43,8 @@ contract Staking is IStaking {
         handsToken.transferFrom(msg.sender, address(this), amount);
         totalStaked += amount;
         stakers[msg.sender].stakedAmount += amount;
+
+        emit Staked(msg.sender, amount);
     }
 
     function unstake(uint256 amount) external {
@@ -51,6 +53,8 @@ contract Staking is IStaking {
         handsToken.transfer(msg.sender, amount);
         totalStaked -= amount;
         stakers[msg.sender].stakedAmount -= amount;
+
+        emit Unstaked(msg.sender, amount);
     }
 
     function claimRewards() external {
@@ -60,12 +64,16 @@ contract Staking is IStaking {
         rewards[msg.sender] = 0;
 
         bankContract.withdraw(reward, msg.sender);
+
+        emit RewardsClaimed(msg.sender, reward);
     }
 
     function addReceivedFundsForStaking(uint256 amount) external onlyBankContract {
         if (totalStaked > 0) {
             cumulativeRewardRate += (amount * 1e18) / totalStaked;
         }
+
+        emit ReceivedFundsForStaking(amount);
     }
 
     function updateRewardsFor(address stakerAddress) public {

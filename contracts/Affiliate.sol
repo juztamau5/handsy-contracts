@@ -65,6 +65,7 @@ contract Affiliate is IAffiliate {
         // Make sure the affiliate is not the sender.
         require(affiliate != msg.sender, "Affiliate cannot be the consumer.");
 
+
         // Add the consumer to the list of this affiliate's consumers.
         affiliateToConsumers[affiliate].push(msg.sender);
 

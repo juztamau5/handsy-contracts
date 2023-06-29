@@ -15,6 +15,9 @@ interface IStaking {
     // Event emitted when a user claims rewards.
     event RewardsClaimed(address indexed staker, uint256 amount);
 
+    //Event emitted when funds are received for staking.
+    event ReceivedFundsForStaking(uint256 amount);
+
     // Function to view the total amount staked in the contract.
     function viewTotalStaked() external view returns (uint256);
 

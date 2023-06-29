@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/home/glockiana/Documents/incubator/gothands/contracts/contracts/Affiliate.sol": {
-      "lastModificationDate": 1686614885107,
-      "contentHash": "1c6537790deef5fd4190cc3c9bdf4921",
+      "lastModificationDate": 1688002120658,
+      "contentHash": "8cb886f0abe35e521766d49f59fa8f4c",
       "sourceName": "contracts/Affiliate.sol",
       "solcConfig": {
         "version": "0.8.17",
@@ -135,8 +135,8 @@
       ]
     },
     "/home/glockiana/Documents/incubator/gothands/contracts/contracts/Staking.sol": {
-      "lastModificationDate": 1687110771918,
-      "contentHash": "d7bcdf06479548084188ea99ec5ee098",
+      "lastModificationDate": 1687703054689,
+      "contentHash": "a0026a4bd9fefca1407fd597da82e79f",
       "sourceName": "contracts/Staking.sol",
       "solcConfig": {
         "version": "0.8.17",
@@ -223,8 +223,8 @@
       ]
     },
     "/home/glockiana/Documents/incubator/gothands/contracts/contracts/interfaces/IStaking.sol": {
-      "lastModificationDate": 1687110800021,
-      "contentHash": "918ec7bcad13d305a291bc586a96f1af",
+      "lastModificationDate": 1687894839539,
+      "contentHash": "482cbbcdd6de5e426c3ae00251c8e92c",
       "sourceName": "contracts/interfaces/IStaking.sol",
       "solcConfig": {
         "version": "0.8.17",
@@ -265,8 +265,8 @@
       ]
     },
     "/home/glockiana/Documents/incubator/gothands/contracts/contracts/Hands.sol": {
-      "lastModificationDate": 1687619578209,
-      "contentHash": "c56f3b0c96615a30bcb40e63a0ff9cfe",
+      "lastModificationDate": 1688002138737,
+      "contentHash": "68f416a7612c31c305072bd77ca260d9",
       "sourceName": "contracts/Hands.sol",
       "solcConfig": {
         "version": "0.8.17",

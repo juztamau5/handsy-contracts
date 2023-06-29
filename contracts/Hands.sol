@@ -106,6 +106,7 @@ contract Hands {
 
         console.log("Registering player with bet %s", bet);
 
+
         if (waitingPlayers[bet] != 0) {
             gameId = waitingPlayers[bet];
             waitingPlayers[bet] = 0;
