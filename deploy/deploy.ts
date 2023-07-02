@@ -2,9 +2,10 @@ import { Wallet, utils } from "zksync-web3";
 import * as ethers from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Deployer } from "@matterlabs/hardhat-zksync-deploy";
+import Secrets from "../secrets.json"
 
 // Get private key from the environment variable
-const PRIVATE_KEY: string = process.env.ZKS_PRIVATE_KEY || "";
+const PRIVATE_KEY: string = Secrets.privateKey || "";
 if (!PRIVATE_KEY) {
   throw new Error("Please set ZKS_PRIVATE_KEY in the environment variables.");
 }

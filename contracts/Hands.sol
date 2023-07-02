@@ -18,7 +18,7 @@ contract Hands {
     }
 
     enum Moves {None, Rock, Paper, Scissors}
-    enum Outcomes {None, PlayerA, PlayerB, Draw, Left} // Possible outcomes
+    enum Outcomes {None, PlayerA, PlayerB, Draw, Left, Timeout} // Possible outcomes
 
     struct Game {
         address payable playerA;
@@ -357,7 +357,7 @@ contract Hands {
             stalledPlayer = game.playerB;
         }
 
-        emit GameOutcome(gameId, Outcomes.None);
+        emit GameOutcome(gameId, Outcomes.Timeout);
 
         if (bothStalled) {
             _refund(gameId, winningPlayer, stalledPlayer);
