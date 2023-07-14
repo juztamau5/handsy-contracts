@@ -99,14 +99,14 @@ contract Affiliate is IAffiliate {
      * @param totalAmount The total amount of funds received.
      * @return The affiliate's share.
      */
-    function calculateAndAddAffiliateShare(address affiliate, uint256 totalAmount) external onlyBankContract returns (uint256) {
+    function calculateAndAddAffiliateShare(address affiliate, address consumer, uint256 totalAmount) external onlyBankContract returns (uint256) {
         if (affiliate != address(0)) {
             uint256 affiliateShare = (MAX_FEE_SHARE_PER_AFFILIATE * totalAmount) / 100;
             receivedFundsPerAffiliatePerBlock[affiliate][block.number] += affiliateShare;
             affiliates[affiliate].receivedFunds += affiliateShare;
             totalReceived += affiliateShare;
 
-            emit RewardRecieved(affiliate, affiliateShare, block.number);
+            emit RewardRecieved(affiliate, consumer, affiliateShare);
 
             return affiliateShare;
         }
@@ -155,7 +155,7 @@ contract Affiliate is IAffiliate {
         if (claimableRewards > 0) {
             bankContract.withdraw(claimableRewards, affiliateAddress);
 
-            emit RewardClaimed(affiliateAddress, claimableRewards, block.number);
+            emit RewardClaimed(affiliateAddress, claimableRewards);
         }
         affiliate.lastClaimedBlock = block.number;
     }

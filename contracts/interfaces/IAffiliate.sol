@@ -6,10 +6,10 @@ interface IAffiliate {
     event ConsumerRegistered(address indexed consumer, address indexed affiliate);
     
     // Event emitted when affiliate recieves a reward.
-    event RewardRecieved(address indexed affiliate, uint256 amount, uint256 blockNumber);
+    event RewardRecieved(address indexed affiliate, address indexed consumer, uint256 amount);
     
     // Event emitted when affiliate claims a reward.
-    event RewardClaimed(address indexed affiliate, uint256 amount, uint256 blockNumber);
+    event RewardClaimed(address indexed affiliate, uint256 amount);
     
     /**
      * @dev Register a consumer with an affiliate.

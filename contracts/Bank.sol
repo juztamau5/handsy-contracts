@@ -64,11 +64,11 @@ contract Bank {
         address affiliate1 = affiliateContract.getAffiliateOfConsumer(contributor1);
         address affiliate2 = affiliateContract.getAffiliateOfConsumer(contributor2);
         
-        uint256 affiliateShare1 = affiliateContract.calculateAndAddAffiliateShare(affiliate1, potFee);
+        uint256 affiliateShare1 = affiliateContract.calculateAndAddAffiliateShare(affiliate1, contributor1, potFee);
         require(affiliateShare1 <= potFee, "Affiliate share cannot be more than potFee");
         potFee -= affiliateShare1;
         
-        uint256 affiliateShare2 = affiliateContract.calculateAndAddAffiliateShare(affiliate2, potFee);
+        uint256 affiliateShare2 = affiliateContract.calculateAndAddAffiliateShare(affiliate2, contributor2, potFee);
         require(affiliateShare2 <= potFee, "Affiliate share cannot be more than potFee");
         potFee -= affiliateShare2;
 
