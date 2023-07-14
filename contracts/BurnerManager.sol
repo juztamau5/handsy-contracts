@@ -13,17 +13,17 @@ contract BurnerManager {
     }
 
     function getBurner(address _owner) public view returns (address) {
-        if (burnerToOwner[_owner] == address(0)) {
+        if (ownerToBurner[_owner] == address(0)) {
             return _owner;
         }
-        return burnerToOwner[_owner];
+        return ownerToBurner[_owner];
     }
 
     function getOwner(address _burner) public view returns (address) {
-        if(ownerToBurner[_burner] == address(0)) {
+        if(burnerToOwner[_burner] == address(0)) {
             return _burner;
         }
-        return ownerToBurner[_burner];
+        return burnerToOwner[_burner];
     }
 
     function fundBurner(uint _value) public payable {

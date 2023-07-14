@@ -265,8 +265,8 @@
       ]
     },
     "/home/glockiana/Documents/incubator/gothands/contracts/contracts/Hands.sol": {
-      "lastModificationDate": 1688335823764,
-      "contentHash": "b04558e4ec3102626359c1240841774f",
+      "lastModificationDate": 1689374309468,
+      "contentHash": "cb427892e4c8fc23d7b2fe950fe759a6",
       "sourceName": "contracts/Hands.sol",
       "solcConfig": {
         "version": "0.8.17",
@@ -300,6 +300,7 @@
       },
       "imports": [
         "./Bank.sol",
+        "./BurnerManager.sol",
         "hardhat/console.sol"
       ],
       "versionPragmas": [
@@ -612,6 +613,48 @@
       ],
       "artifacts": [
         "console"
+      ]
+    },
+    "/home/glockiana/Documents/incubator/gothands/contracts/contracts/BurnerManager.sol": {
+      "lastModificationDate": 1689374440574,
+      "contentHash": "237b1afc681449b9aef50d72518fff18",
+      "sourceName": "contracts/BurnerManager.sol",
+      "solcConfig": {
+        "version": "0.8.17",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "devdoc",
+                "userdoc",
+                "storageLayout",
+                "evm.gasEstimates"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "metadata": {
+            "useLiteralContent": true
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.11"
+      ],
+      "artifacts": [
+        "BurnerManager"
       ]
     }
   }

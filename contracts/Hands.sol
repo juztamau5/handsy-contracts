@@ -56,8 +56,15 @@ contract Hands is BurnerManager {
 
     // Modifiers
     modifier validBet() { require(msg.value >= BET_MIN, "Bet must be at least the minimum bet amount"); _;}
-    modifier isNotAlreadyInGame() { require(playerGame[msg.sender] == 0, "Player already in game"); _;}
-    modifier isRegistered(uint gameId) { require(playerGame[msg.sender] == gameId, "Player not registered"); _; }
+    modifier isNotAlreadyInGame() {
+        address sender = getOwner(msg.sender);
+        require(playerGame[sender] == 0, "Player already in game"); _;
+    }
+    modifier isRegistered(uint gameId) {
+        address sender = getOwner(msg.sender);
+        console.log("Sender:", sender);
+        require(playerGame[sender] == gameId, "Player not registered"); _; 
+    }
     modifier commitPhaseEnded(uint gameId) {
         require(games[gameId].encrMovePlayerA != 0x0 && games[gameId].encrMovePlayerB != 0x0 || 
                 (commitPhaseStart[gameId] != 0 && block.timestamp > commitPhaseStart[gameId] + COMMIT_TIMEOUT), 
@@ -65,9 +72,6 @@ contract Hands is BurnerManager {
         _;
     }
     modifier isCommitPhase(uint gameId) {
-        console.log("Commit phase start: %s", commitPhaseStart[gameId]);
-        console.log("Commit phase end: %s", commitPhaseStart[gameId] + COMMIT_TIMEOUT);
-        console.log("Current time: %s", block.timestamp);
         if(commitPhaseStart[gameId] != 0 && block.timestamp > commitPhaseStart[gameId] + COMMIT_TIMEOUT) {
             _abruptFinish(gameId);
             return;
@@ -76,15 +80,13 @@ contract Hands is BurnerManager {
         _;
     }   
     modifier hasNotRevealed(uint gameId) {
-        require(msg.sender == games[gameId].playerA && games[gameId].movePlayerA == Moves.None ||
-                msg.sender == games[gameId].playerB && games[gameId].movePlayerB == Moves.None,
+        address sender = getOwner(msg.sender);
+        require(sender == games[gameId].playerA && games[gameId].movePlayerA == Moves.None ||
+                sender == games[gameId].playerB && games[gameId].movePlayerB == Moves.None,
                 "Player already revealed");
         _;
     }
     modifier isRevealPhase(uint gameId) {
-        console.log("Reveal phase start: %s", revealPhaseStart[gameId]);
-        console.log("Reveal phase end: %s", revealPhaseStart[gameId] + REVEAL_TIMEOUT);
-        console.log("Current time: %s", block.timestamp);
         if (revealPhaseStart[gameId] != 0 && block.timestamp > revealPhaseStart[gameId] + REVEAL_TIMEOUT) {
             _abruptFinish(gameId);
             return;
@@ -101,25 +103,20 @@ contract Hands is BurnerManager {
         _;
     }
 
-    function register() public payable validBet isNotAlreadyInGame returns (uint) {
-        uint bet = msg.value;
+    function _register(address sender, uint bet) internal returns (uint) {
         uint gameId;
-
-        console.log("Registering player with bet %s", bet);
-
-
         if (waitingPlayers[bet] != 0) {
             gameId = waitingPlayers[bet];
             waitingPlayers[bet] = 0;
-            games[gameId].playerB = payable(msg.sender);
-            playerGame[msg.sender] = gameId;
+            games[gameId].playerB = payable(sender);
+            playerGame[sender] = gameId;
             commitPhaseStart[gameId] = block.timestamp;
             emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
         } else {
             lastGameId += 1;
             gameId = lastGameId;
             games[gameId] = Game({
-                playerA: payable(msg.sender),
+                playerA: payable(sender),
                 playerB: payable(address(0)),
                 bet: bet,
                 encrMovePlayerA: 0x0,
@@ -130,106 +127,65 @@ contract Hands is BurnerManager {
                 pointsA: 0,
                 pointsB: 0
             });
-            playerGame[msg.sender] = gameId;
+            playerGame[sender] = gameId;
             waitingPlayers[bet] = gameId;
             emit PlayerWaiting(gameId, bet);
         }
 
         emit PlayerRegistered(gameId, msg.sender);
         return gameId;
+    }
+
+    function register() public payable validBet isNotAlreadyInGame returns (uint) {        
+        return _register(msg.sender, msg.value);
     }
 
     function registerWithBurner(address burner, uint256 betAmount) public payable validBet isNotAlreadyInGame returns (uint) {
         uint bet = betAmount;
         uint burnerFundAmount = msg.value - betAmount;
-        uint gameId;
 
         //set and fund burner
         setBurner(burner);
         fundBurner(burnerFundAmount);
 
-        console.log("Registering player with bet %s", bet);
+        return _register(msg.sender, bet);
+    }
 
-        if (waitingPlayers[bet] != 0) {
-            gameId = waitingPlayers[bet];
-            waitingPlayers[bet] = 0;
-            games[gameId].playerB = payable(msg.sender);
-            playerGame[msg.sender] = gameId;
-            commitPhaseStart[gameId] = block.timestamp;
-            emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
-        } else {
-            lastGameId += 1;
-            gameId = lastGameId;
-            games[gameId] = Game({
-                playerA: payable(msg.sender),
-                playerB: payable(address(0)),
-                bet: bet,
-                encrMovePlayerA: 0x0,
-                encrMovePlayerB: 0x0,
-                movePlayerA: Moves.None,
-                movePlayerB: Moves.None,
-                round: 0,
-                pointsA: 0,
-                pointsB: 0
-            });
-            playerGame[msg.sender] = gameId;
-            waitingPlayers[bet] = gameId;
-            emit PlayerWaiting(gameId, bet);
-        }
-
-        emit PlayerRegistered(gameId, msg.sender);
+    function _createPasswordMatch(address sender, uint bet, bytes32 passwordHash) internal returns (uint) {
+        lastGameId++;
+        uint gameId = lastGameId;
+        games[gameId] = Game({
+            playerA: payable(sender),
+            playerB: payable(address(0)),
+            bet: bet,
+            encrMovePlayerA: 0x0,
+            encrMovePlayerB: 0x0,
+            movePlayerA: Moves.None,
+            movePlayerB: Moves.None,
+            round: 0,
+            pointsA: 0,
+            pointsB: 0
+        });
+        playerGame[sender] = lastGameId;
+        passwordGames[passwordHash] = lastGameId;
+        emit PlayerWaiting(lastGameId, bet);
+        emit PlayerRegistered(lastGameId, sender);
         return gameId;
-
     }
 
     function createPasswordMatch(bytes32 passwordHash) external payable validBet isNotAlreadyInGame {
-        lastGameId++;
-        uint bet = msg.value;
-        uint gameId = lastGameId;
-        games[gameId] = Game({
-            playerA: payable(msg.sender),
-            playerB: payable(address(0)),
-            bet: bet,
-            encrMovePlayerA: 0x0,
-            encrMovePlayerB: 0x0,
-            movePlayerA: Moves.None,
-            movePlayerB: Moves.None,
-            round: 0,
-            pointsA: 0,
-            pointsB: 0
-        });
-        playerGame[msg.sender] = lastGameId;
-        passwordGames[passwordHash] = lastGameId;
-        emit PlayerWaiting(lastGameId, bet);
-        emit PlayerRegistered(lastGameId, msg.sender);
+        _createPasswordMatch(msg.sender, msg.value, passwordHash);
     }
 
     function createPasswordMatchWithBurner(address burner, uint256 betAmount, bytes32 passwordHash) external payable validBet isNotAlreadyInGame {
-        lastGameId++;
         uint bet = betAmount;
         uint burnerFundAmount = msg.value - betAmount;
-        uint gameId = lastGameId;
 
         //set and fund burner
         setBurner(burner);
         fundBurner(burnerFundAmount);
 
-        games[gameId] = Game({
-            playerA: payable(msg.sender),
-            playerB: payable(address(0)),
-            bet: bet,
-            encrMovePlayerA: 0x0,
-            encrMovePlayerB: 0x0,
-            movePlayerA: Moves.None,
-            movePlayerB: Moves.None,
-            round: 0,
-            pointsA: 0,
-            pointsB: 0
-        });
-        playerGame[msg.sender] = lastGameId;
-        passwordGames[passwordHash] = lastGameId;
-        emit PlayerWaiting(lastGameId, bet);
-        emit PlayerRegistered(lastGameId, msg.sender);
+        _createPasswordMatch(msg.sender, bet, passwordHash);
     }
 
     function joinPasswordMatch(string memory password) external payable validBet isNotAlreadyInGame {
