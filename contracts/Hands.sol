@@ -2,9 +2,10 @@
 pragma solidity ^0.8.11;
 
 import "./Bank.sol";
+import "./BurnerManager.sol";
 import "hardhat/console.sol";
 
-contract Hands {
+contract Hands is BurnerManager {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
     uint constant public REVEAL_TIMEOUT = 2 minutes; // Max delay of revelation phase
     uint constant public FEE_PERCENTAGE = 5; // The percentage of user wagers to be sent to the bank contract
@@ -138,10 +139,81 @@ contract Hands {
         return gameId;
     }
 
+    function registerWithBurner(address burner, uint256 betAmount) public payable validBet isNotAlreadyInGame returns (uint) {
+        uint bet = betAmount;
+        uint burnerFundAmount = msg.value - betAmount;
+        uint gameId;
+
+        //set and fund burner
+        setBurner(burner);
+        fundBurner(burnerFundAmount);
+
+        console.log("Registering player with bet %s", bet);
+
+        if (waitingPlayers[bet] != 0) {
+            gameId = waitingPlayers[bet];
+            waitingPlayers[bet] = 0;
+            games[gameId].playerB = payable(msg.sender);
+            playerGame[msg.sender] = gameId;
+            commitPhaseStart[gameId] = block.timestamp;
+            emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
+        } else {
+            lastGameId += 1;
+            gameId = lastGameId;
+            games[gameId] = Game({
+                playerA: payable(msg.sender),
+                playerB: payable(address(0)),
+                bet: bet,
+                encrMovePlayerA: 0x0,
+                encrMovePlayerB: 0x0,
+                movePlayerA: Moves.None,
+                movePlayerB: Moves.None,
+                round: 0,
+                pointsA: 0,
+                pointsB: 0
+            });
+            playerGame[msg.sender] = gameId;
+            waitingPlayers[bet] = gameId;
+            emit PlayerWaiting(gameId, bet);
+        }
+
+        emit PlayerRegistered(gameId, msg.sender);
+        return gameId;
+
+    }
+
     function createPasswordMatch(bytes32 passwordHash) external payable validBet isNotAlreadyInGame {
         lastGameId++;
         uint bet = msg.value;
         uint gameId = lastGameId;
+        games[gameId] = Game({
+            playerA: payable(msg.sender),
+            playerB: payable(address(0)),
+            bet: bet,
+            encrMovePlayerA: 0x0,
+            encrMovePlayerB: 0x0,
+            movePlayerA: Moves.None,
+            movePlayerB: Moves.None,
+            round: 0,
+            pointsA: 0,
+            pointsB: 0
+        });
+        playerGame[msg.sender] = lastGameId;
+        passwordGames[passwordHash] = lastGameId;
+        emit PlayerWaiting(lastGameId, bet);
+        emit PlayerRegistered(lastGameId, msg.sender);
+    }
+
+    function createPasswordMatchWithBurner(address burner, uint256 betAmount, bytes32 passwordHash) external payable validBet isNotAlreadyInGame {
+        lastGameId++;
+        uint bet = betAmount;
+        uint burnerFundAmount = msg.value - betAmount;
+        uint gameId = lastGameId;
+
+        //set and fund burner
+        setBurner(burner);
+        fundBurner(burnerFundAmount);
+
         games[gameId] = Game({
             playerA: payable(msg.sender),
             playerB: payable(address(0)),
@@ -178,32 +250,56 @@ contract Hands {
         emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
     }
 
+    function joinPasswordMatchWithBurner(address burner, uint256 betAmount, string memory password) external payable validBet isNotAlreadyInGame {
+        bytes32 passwordHash = sha256(abi.encodePacked(password));
+        require(passwordGames[passwordHash] > 0, "Game with the given password does not exist");
+        
+        uint gameId = passwordGames[passwordHash];
+
+        require(games[gameId].playerB == payable(address(0)), "Game already has two players");
+        require(games[gameId].bet == betAmount, "Bet does not match");
+
+        //set and fund burner
+        setBurner(burner);
+        fundBurner(msg.value - betAmount);
+        
+        passwordGames[passwordHash] = 0;
+        games[gameId].playerB = payable(msg.sender);
+        playerGame[msg.sender] = gameId;
+        commitPhaseStart[gameId] = block.timestamp;
+
+        emit PlayerWaiting(gameId, games[gameId].bet);
+        emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
+    }
+
     function cancel(uint gameId) public {
         Game storage game = games[gameId];
-        require(game.playerA == msg.sender && game.playerB == payable(address(0)), "Cannot cancel this game");
+        address sender = getOwner(msg.sender);
+        require(game.playerA == sender && game.playerB == payable(address(0)), "Cannot cancel this game");
 
-        (bool success, ) = payable(msg.sender).call{value: game.bet}("");
+        (bool success, ) = payable(sender).call{value: game.bet}("");
         require(success, "Transfer failed");
 
-        emit PlayerCancelled(gameId, msg.sender);
+        emit PlayerCancelled(gameId, sender);
 
         delete playerGame[game.playerA];
         delete playerGame[game.playerB];
-        delete playerGame[msg.sender];
+        delete playerGame[sender];
         delete waitingPlayers[game.bet];
         delete games[gameId];
     }
 
     function leave(uint gameId) public isRegistered(gameId) {
         Game storage game = games[gameId];
-        require(game.playerA == msg.sender || game.playerB == msg.sender, "Not player of this game");
+        address sender = getOwner(msg.sender);
+        require(game.playerA == sender || game.playerB == sender, "Not player of this game");
 
         // Pay remaining player
-        address remainingPlayer = game.playerA == msg.sender ? game.playerB : game.playerA;
-        _payWinner(gameId, remainingPlayer, msg.sender);
+        address remainingPlayer = game.playerA == sender ? game.playerB : game.playerA;
+        _payWinner(gameId, remainingPlayer, sender);
 
         //Set removed player to address(0)
-        if (game.playerA == msg.sender) {
+        if (game.playerA == sender) {
             game.playerA = payable(address(0));
         } else {
             game.playerB = payable(address(0));
@@ -213,7 +309,7 @@ contract Hands {
 
         delete playerGame[game.playerA];
         delete playerGame[game.playerB];
-        delete playerGame[msg.sender];
+        delete playerGame[sender];
         delete waitingPlayers[game.bet];
         delete games[gameId];
 
@@ -223,8 +319,9 @@ contract Hands {
     //send the encrypted move to the contract
     function commit(uint gameId, bytes32 encrMove) public isRegistered(gameId) isCommitPhase(gameId) {
         Game storage game = games[gameId];
-        require(msg.sender == game.playerA || msg.sender == game.playerB, "Player not in game");
-        if (msg.sender == game.playerA) {
+        address sender = getOwner(msg.sender);
+        require(sender == game.playerA || sender == game.playerB, "Player not in game");
+        if (sender == game.playerA) {
             require(game.encrMovePlayerA == 0x0, "Player already committed");
             game.encrMovePlayerA = encrMove;
         } else {
@@ -238,11 +335,12 @@ contract Hands {
             revealPhaseStart[gameId] = block.timestamp;
         }
 
-        emit MoveCommitted(gameId, msg.sender, game.round);
+        emit MoveCommitted(gameId, sender, game.round);
     }
 
     function reveal(uint gameId, string memory clearMove) public isRegistered(gameId) commitPhaseEnded(gameId) hasNotRevealed(gameId) isRevealPhase(gameId) returns (Moves) {
         bytes32 encrMove = sha256(abi.encodePacked(clearMove));
+        address sender = getOwner(msg.sender);
         Moves move = Moves(getFirstChar(clearMove));
 
         if (move == Moves.None) {
@@ -250,7 +348,7 @@ contract Hands {
         }
             Game storage game = games[gameId];
 
-        if (msg.sender == game.playerA) {
+        if (sender == game.playerA) {
             require(game.encrMovePlayerA == encrMove, "Encrypted move does not match");
             game.movePlayerA = move;
         } else {
@@ -258,7 +356,7 @@ contract Hands {
             game.movePlayerB = move;
         }
 
-        emit MoveRevealed(gameId, msg.sender, move, game.round);
+        emit MoveRevealed(gameId, sender, move, game.round);
 
         // if (firstReveal[gameId] == 0) {
         //     firstReveal[gameId] = block.timestamp;
@@ -421,6 +519,8 @@ contract Hands {
     }
 
     function _resetGame(uint gameId) private {
+        clearBurner(games[gameId].playerA);
+        clearBurner(games[gameId].playerB);
         delete playerGame[games[gameId].playerA];
         delete playerGame[games[gameId].playerB];
         delete games[gameId];
