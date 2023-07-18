@@ -7,5 +7,6 @@ local-dependency-contracts.json
 local-contracts.json
 typechain-types
 deployments
+secrets.json
 
 *.me
