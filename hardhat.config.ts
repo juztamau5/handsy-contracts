@@ -1,11 +1,14 @@
 import "@nomiclabs/hardhat-waffle";
 import { HardhatUserConfig } from "hardhat/config";
 import { HttpNetworkUserConfig } from "hardhat/types";
+import secrets from "./secrets.json"
 
 import "@typechain/hardhat";
 import "hardhat-deploy";
 import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
+import "@nomiclabs/hardhat-ethers";
+
 
 // dynamically changes endpoints for local tests
 const zkSyncTestnet =
@@ -33,6 +36,11 @@ module.exports = {
 
 
   networks: {
+    arbitrumGoerli: {
+      url: "https://goerli-rollup.arbitrum.io/rpc",
+      chainId: 421613,
+      accounts: [secrets.privateKeyArbitrumGoerli]
+    },
     hardhat: {
     },
     // load test network details

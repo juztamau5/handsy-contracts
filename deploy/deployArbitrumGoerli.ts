@@ -8,7 +8,7 @@ import { DeployFunction, DeployOptions } from "hardhat-deploy/types";
 const hre = require("hardhat");
 
 // Get private key from the environment variable
-const PRIVATE_KEY: string = secrets.privateKeyHardhat;
+const PRIVATE_KEY: string = secrets.privateKeyArbitrumGoerli;
 
 interface DependencyAbis {
     wETH: any;
@@ -160,9 +160,14 @@ async function main () {
     const { deployments, getNamedAccounts, network } = hre;
     console.log("named accounts", await getNamedAccounts());
 
-    const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545");
+    const provider = new ethers.providers.JsonRpcProvider("https://goerli-rollup.arbitrum.io/rpc");
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider)
+    let nonce = 2;
+    console.log(`Nonce: ${nonce}`);
     const address = wallet.address;
+    const signer = await hre.ethers.getSigner(wallet.address);
+
+    console.log(`Wallet address: ${address}`    )
 
     // IoTeX does not support the deterministic deployment through the contract used by hardhat-deploy
     const deterministicDeployment = network.name !== "iotex_testnet";
@@ -198,12 +203,12 @@ async function main () {
     const supplyCap = ethers.utils.parseUnits("1000000", 18);
 
     // Deploy the HandsToken contract
-    const handsTokenContractResult = await deployments.deploy("HandsToken", {
-        ...opts,
-        args: [premintReceiver, premintAmount, supplyCap],
-    });
-    const handsTokenContractAddress = handsTokenContractResult.address;
-    console.log(`HandsToken was deployed to ${handsTokenContractAddress}`);
+    const HandsTokenContractFactory = await hre.ethers.getContractFactory("HandsToken");
+    const HandsTokenContract = await HandsTokenContractFactory.deploy(premintReceiver, premintAmount, supplyCap);
+    await HandsTokenContract.deployed();
+    const HandsTokenContractAbi = HandsTokenContractFactory.interface.abi;
+    const handsTokenContractAddress = HandsTokenContract.address;
+    console.log(`HandsToken was deployed to ${HandsTokenContract.address}`);
 
 
     
@@ -213,13 +218,14 @@ async function main () {
     //const affiliateArtifact = await deployer.loadArtifact("Affiliate");
 
     // Deploy Affiliate contract
-    const affiliateContractResult = await deployments.deploy("Affiliate", {
-        ...opts,
-        args: [],
-    });
+    const AffiliateTokenContractFactory = await hre.ethers.getContractFactory("Affiliate");
+    const AffiliateTokenContract = await AffiliateTokenContractFactory.deploy();
+    await AffiliateTokenContract.deployed();
+    const AffiliateTokenContractAbi = AffiliateTokenContractFactory.interface.abi;
+    const affiliateContractAddress = AffiliateTokenContract.address;
+    
 
     // Show the Affiliate contract info
-    const affiliateContractAddress = affiliateContractResult.address;
     console.log(`Affiliate was deployed to ${affiliateContractAddress}`);
 
 
@@ -236,16 +242,15 @@ async function main () {
     //console.log(`The Staking deployment is estimated to cost ${parsedStakingFee} ETH`);
 
     // Deploy Staking contract, passing the addresses of the deployed HandsToken and bank contracts to the constructor
-    const stakingContractResult = await deployments.deploy("Staking", {
-        ...opts,
-        args: [handsTokenContractAddress],
-    });
+    const StakingContractFactory = await hre.ethers.getContractFactory("Staking");
+    const StakingContract = await StakingContractFactory.deploy(handsTokenContractAddress);
+    await StakingContract.deployed();
+    const StakingContractAbi = StakingContractFactory.interface.abi;
+    const stakingContractAddress = StakingContract.address;
 
-    // Show the Staking contract info
-    const stakingContractAddress = stakingContractResult.address;
+    // Show the Staking contract 
     console.log(`Staking was deployed to ${stakingContractAddress}`);
     
-
 
 
 
@@ -255,13 +260,14 @@ async function main () {
     //const bankArtifact = await deployer.loadArtifact("Bank");
 
     // Deploy bank contract
-    const bankContract = await deployments.deploy("Bank", {
-        ...opts,
-        args: [affiliateContractAddress, stakingContractAddress],
-    });
+    const BankContractFactory = await hre.ethers.getContractFactory("Bank");
+    const BankContract = await BankContractFactory.deploy(affiliateContractAddress, stakingContractAddress);
+    await BankContract.deployed();
+    const BankContractAbi = BankContractFactory.interface.abi;
+    const bankContractAddress = BankContract.address;
+    
 
     // Show the bank contract info
-    const bankContractAddress = bankContract.address;
     console.log(`bank was deployed to ${bankContractAddress}`);
 
     // //set banking contract for both affiliate and staking
@@ -291,38 +297,37 @@ async function main () {
     //console.log(`The Hands deployment is estimated to cost ${parsedHandsFee} ETH`);
 
     // Deploy Hands contract, passing the address of the deployed bank contract to the constructor
-    const handsContract = await deployments.deploy("Hands", {
-        ...opts,
-        args: [bankContractAddress],
-    });
-
+    const HandsContractFactory = await hre.ethers.getContractFactory("Hands");
+    const HandsContract = await HandsContractFactory.deploy(bankContractAddress);
+    await HandsContract.deployed();
+    const HandsContractAbi = HandsContractFactory.interface.abi;
+    const handsContractAddress = HandsContract.address;
 
     // Show the Hands contract info
-    const handsContractAddress = handsContract.address;
     console.log(`Hands was deployed to ${handsContractAddress}`);
 
 
     //Send eth to address
-    const reciever = "0xf8a2bE5bAbD50AC94b5B811c137F306676012567"
-    const reciever2 = "0x3Cab3b593388D1750ab967D62927dD2B90e3cC22"
-    const tx = await wallet.sendTransaction({
-        to: reciever,
-        value: ethers.utils.parseEther("1"),
-    });
-    const tx2 = await wallet.sendTransaction({
-        to: reciever2,
-        value: ethers.utils.parseEther("1"),
-    });
+    // const reciever = "0xf8a2bE5bAbD50AC94b5B811c137F306676012567"
+    // const reciever2 = "0x3Cab3b593388D1750ab967D62927dD2B90e3cC22"
+    // const tx = await wallet.sendTransaction({
+    //     to: reciever,
+    //     value: ethers.utils.parseEther("1"),
+    // });
+    // const tx2 = await wallet.sendTransaction({
+    //     to: reciever2,
+    //     value: ethers.utils.parseEther("1"),
+    // });
 
-    //send hands to address
-    const handsToken = new ethers.Contract(
-        handsTokenContractAddress,
-        handsTokenContractResult.abi,
-        wallet,
+    // //send hands to address
+    // const handsToken = new ethers.Contract(
+    //     handsTokenContractAddress,
+    //     handsTokenContractResult.abi,
+    //     wallet,
 
-    );
-    const handsTokenTx = await handsToken.transfer(reciever, ethers.utils.parseUnits("100", 18));
-    const handsTokenTx2 = await handsToken.transfer(reciever2, ethers.utils.parseUnits("100", 18));
+    // );
+    // const handsTokenTx = await handsToken.transfer(reciever, ethers.utils.parseUnits("100", 18));
+    // const handsTokenTx2 = await handsToken.transfer(reciever2, ethers.utils.parseUnits("100", 18));
 
     //DEPLOYMENT FILE   
     //create new json file with all the contract addresses
@@ -335,11 +340,11 @@ async function main () {
     };
 
     const deployedAbis: DeployedAbis = {
-        HandsToken: handsTokenContractResult.abi,
-        Bank: bankContract.abi,
-        Staking: stakingContractResult.abi,
-        Hands: handsContract.abi,
-        Affiliate: affiliateContractResult.abi,
+        HandsToken: HandsTokenContractAbi,
+        Bank: BankContractAbi,
+        Staking: StakingContractAbi,
+        Hands: HandsContractAbi,
+        Affiliate: AffiliateTokenContractAbi,
     };
 
     setLocalContractFile(
