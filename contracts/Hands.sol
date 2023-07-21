@@ -238,11 +238,15 @@ contract Hands is BurnerManager {
 
         emit PlayerCancelled(gameId, sender);
 
+        clearBurner(games[gameId].playerA);
+        clearBurner(games[gameId].playerB);
         delete playerGame[game.playerA];
         delete playerGame[game.playerB];
         delete playerGame[sender];
         delete waitingPlayers[game.bet];
         delete games[gameId];
+
+
     }
 
     function leave(uint gameId) public isRegistered(gameId) {
@@ -263,6 +267,8 @@ contract Hands is BurnerManager {
 
         emit GameOutcome(gameId, Outcomes.Left);
 
+        clearBurner(games[gameId].playerA);
+        clearBurner(games[gameId].playerB);
         delete playerGame[game.playerA];
         delete playerGame[game.playerB];
         delete playerGame[sender];
