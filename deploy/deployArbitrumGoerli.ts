@@ -206,7 +206,7 @@ async function main () {
     const HandsTokenContractFactory = await hre.ethers.getContractFactory("HandsToken");
     const HandsTokenContract = await HandsTokenContractFactory.deploy(premintReceiver, premintAmount, supplyCap);
     await HandsTokenContract.deployed();
-    const HandsTokenContractAbi = HandsTokenContractFactory.interface.abi;
+    const HandsTokenContractAbi = HandsTokenContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
     const handsTokenContractAddress = HandsTokenContract.address;
     console.log(`HandsToken was deployed to ${HandsTokenContract.address}`);
 
@@ -221,7 +221,7 @@ async function main () {
     const AffiliateTokenContractFactory = await hre.ethers.getContractFactory("Affiliate");
     const AffiliateTokenContract = await AffiliateTokenContractFactory.deploy();
     await AffiliateTokenContract.deployed();
-    const AffiliateTokenContractAbi = AffiliateTokenContractFactory.interface.abi;
+    const AffiliateTokenContractAbi = AffiliateTokenContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
     const affiliateContractAddress = AffiliateTokenContract.address;
     
 
@@ -245,7 +245,7 @@ async function main () {
     const StakingContractFactory = await hre.ethers.getContractFactory("Staking");
     const StakingContract = await StakingContractFactory.deploy(handsTokenContractAddress);
     await StakingContract.deployed();
-    const StakingContractAbi = StakingContractFactory.interface.abi;
+    const StakingContractAbi = StakingContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
     const stakingContractAddress = StakingContract.address;
 
     // Show the Staking contract 
@@ -263,7 +263,7 @@ async function main () {
     const BankContractFactory = await hre.ethers.getContractFactory("Bank");
     const BankContract = await BankContractFactory.deploy(affiliateContractAddress, stakingContractAddress);
     await BankContract.deployed();
-    const BankContractAbi = BankContractFactory.interface.abi;
+    const BankContractAbi = BankContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
     const bankContractAddress = BankContract.address;
     
 
@@ -300,7 +300,7 @@ async function main () {
     const HandsContractFactory = await hre.ethers.getContractFactory("Hands");
     const HandsContract = await HandsContractFactory.deploy(bankContractAddress);
     await HandsContract.deployed();
-    const HandsContractAbi = HandsContractFactory.interface.abi;
+    const HandsContractAbi = HandsContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
     const handsContractAddress = HandsContract.address;
 
     // Show the Hands contract info
