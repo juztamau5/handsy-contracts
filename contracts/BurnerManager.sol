@@ -7,7 +7,14 @@ contract BurnerManager {
 
     function setBurner(address _burner) public {
         require(burnerToOwner[_burner] == address(0), "Burner already has owner.");
-        require(ownerToBurner[msg.sender] == address(0), "Owner already has burner.");
+
+        // If the owner already has a burner, clear it
+        if(ownerToBurner[msg.sender] != address(0)) {
+            address oldBurner = ownerToBurner[msg.sender];
+            delete burnerToOwner[oldBurner];
+        }
+
+        // Set the new burner
         burnerToOwner[_burner] = msg.sender;
         ownerToBurner[msg.sender] = _burner;
     }
