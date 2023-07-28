@@ -4,7 +4,7 @@ pragma solidity ^0.8.11;
 import "./Affiliate.sol";
 import "./Staking.sol";
 
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 /**
  * @title Bank contract
@@ -72,13 +72,13 @@ contract Bank {
         require(affiliateShare2 <= potFee, "Affiliate share cannot be more than potFee");
         potFee -= affiliateShare2;
 
-        //console.log("Received funds: %s   affiliate1: %s   affiliate2: %s   affiliateShare1: %s   affiliateShare2: %s   potFee: %s", msg.value, affiliate1, affiliate2, affiliateShare1, affiliateShare2, potFee);
-        console.log("Received funds: %s", msg.value);
-        console.log("affiliate1: %s", affiliate1);
-        console.log("affiliate2: %s", affiliate2);
-        console.log("affiliateShare1: %s", affiliateShare1);
-        console.log("affiliateShare2: %s", affiliateShare2);
-        console.log("potFee: %s", potFee);
+        ////console.log("Received funds: %s   affiliate1: %s   affiliate2: %s   affiliateShare1: %s   affiliateShare2: %s   potFee: %s", msg.value, affiliate1, affiliate2, affiliateShare1, affiliateShare2, potFee);
+        //console.log("Received funds: %s", msg.value);
+        //console.log("affiliate1: %s", affiliate1);
+        //console.log("affiliate2: %s", affiliate2);
+        //console.log("affiliateShare1: %s", affiliateShare1);
+        //console.log("affiliateShare2: %s", affiliateShare2);
+        //console.log("potFee: %s", potFee);
 
 
         // Add the remaining potFee to the receivedFundsPerBlock

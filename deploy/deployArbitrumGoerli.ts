@@ -205,8 +205,10 @@ async function main () {
     // Deploy the HandsToken contract
     const HandsTokenContractFactory = await hre.ethers.getContractFactory("HandsToken");
     const HandsTokenContract = await HandsTokenContractFactory.deploy(premintReceiver, premintAmount, supplyCap);
-    await HandsTokenContract.deployed();
-    const HandsTokenContractAbi = HandsTokenContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
+    // await HandsTokenContract.deployed();
+    const HandsTokenArtifact = await hre.artifacts.readArtifact("HandsToken");
+    const HandsTokenContractAbi = HandsTokenArtifact.abi;
+    console.log("abi", HandsTokenContractAbi);
     const handsTokenContractAddress = HandsTokenContract.address;
     console.log(`HandsToken was deployed to ${HandsTokenContract.address}`);
 
@@ -221,7 +223,8 @@ async function main () {
     const AffiliateTokenContractFactory = await hre.ethers.getContractFactory("Affiliate");
     const AffiliateTokenContract = await AffiliateTokenContractFactory.deploy();
     await AffiliateTokenContract.deployed();
-    const AffiliateTokenContractAbi = AffiliateTokenContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
+    const AffiliateTokenArtifact = await hre.artifacts.readArtifact("Affiliate");
+    const AffiliateTokenContractAbi = AffiliateTokenArtifact.abi;
     const affiliateContractAddress = AffiliateTokenContract.address;
     
 
@@ -245,7 +248,8 @@ async function main () {
     const StakingContractFactory = await hre.ethers.getContractFactory("Staking");
     const StakingContract = await StakingContractFactory.deploy(handsTokenContractAddress);
     await StakingContract.deployed();
-    const StakingContractAbi = StakingContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
+    const StakingContractArtifact = await hre.artifacts.readArtifact("Staking");
+    const StakingContractAbi = StakingContractArtifact.abi;
     const stakingContractAddress = StakingContract.address;
 
     // Show the Staking contract 
@@ -263,7 +267,8 @@ async function main () {
     const BankContractFactory = await hre.ethers.getContractFactory("Bank");
     const BankContract = await BankContractFactory.deploy(affiliateContractAddress, stakingContractAddress);
     await BankContract.deployed();
-    const BankContractAbi = BankContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
+    const BankContractArtifact = await hre.artifacts.readArtifact("Bank");
+    const BankContractAbi = BankContractArtifact.abi;
     const bankContractAddress = BankContract.address;
     
 
@@ -300,14 +305,16 @@ async function main () {
     const HandsContractFactory = await hre.ethers.getContractFactory("Hands");
     const HandsContract = await HandsContractFactory.deploy(bankContractAddress);
     await HandsContract.deployed();
-    const HandsContractAbi = HandsContractFactory.interface.format(hre.ethers.utils.FormatTypes.full);
+    const HandsContractArtifact = await hre.artifacts.readArtifact("Hands");
+    const HandsContractAbi = HandsContractArtifact.abi;
     const handsContractAddress = HandsContract.address;
+    console.log("Hands ")
 
     // Show the Hands contract info
     console.log(`Hands was deployed to ${handsContractAddress}`);
 
 
-    //Send eth to address
+    // //Send eth to address
     // const reciever = "0xf8a2bE5bAbD50AC94b5B811c137F306676012567"
     // const reciever2 = "0x3Cab3b593388D1750ab967D62927dD2B90e3cC22"
     // const tx = await wallet.sendTransaction({
@@ -322,7 +329,7 @@ async function main () {
     // //send hands to address
     // const handsToken = new ethers.Contract(
     //     handsTokenContractAddress,
-    //     handsTokenContractResult.abi,
+    //     HandsTokenContractAbi,
     //     wallet,
 
     // );

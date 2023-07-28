@@ -3,7 +3,7 @@ pragma solidity ^0.8.11;
 
 import "./Bank.sol";
 import "./BurnerManager.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 contract Hands is BurnerManager {
     uint constant public BET_MIN = 1e16; // The minimum bet (1 finney)
@@ -46,7 +46,7 @@ contract Hands is BurnerManager {
     // Events
     event PlayersMatched(uint indexed gameId, address indexed playerA, address indexed playerB);
     event PlayerRegistered(uint indexed gameId, address indexed playerAddress);
-    event PlayerWaiting(uint indexed gameId, uint bet);
+    event PlayerWaiting(uint indexed gameId, uint bet, address indexed playerAddress, bool first);
     event GameOutcome(uint indexed gameId, Outcomes outcome);
     event MoveCommitted(uint indexed gameId, address indexed playerAddress, uint round);
     event NewRound(uint indexed gameId, uint round, uint pointsA, uint pointsB);
@@ -62,7 +62,7 @@ contract Hands is BurnerManager {
     }
     modifier isRegistered(uint gameId) {
         address sender = getOwner(msg.sender);
-        console.log("Sender:", sender);
+        //console.log("Sender:", sender);
         require(playerGame[sender] == gameId, "Player not registered"); _; 
     }
     modifier commitPhaseEnded(uint gameId) {
@@ -105,6 +105,9 @@ contract Hands is BurnerManager {
 
     function _register(address sender, uint bet) internal returns (uint) {
         uint gameId;
+
+        emit PlayerRegistered(gameId, sender);
+
         if (waitingPlayers[bet] != 0) {
             gameId = waitingPlayers[bet];
             waitingPlayers[bet] = 0;
@@ -129,10 +132,9 @@ contract Hands is BurnerManager {
             });
             playerGame[sender] = gameId;
             waitingPlayers[bet] = gameId;
-            emit PlayerWaiting(gameId, bet);
+            emit PlayerWaiting(gameId, bet, sender, true);
         }
 
-        emit PlayerRegistered(gameId, msg.sender);
         return gameId;
     }
 
@@ -168,8 +170,8 @@ contract Hands is BurnerManager {
         });
         playerGame[sender] = lastGameId;
         passwordGames[passwordHash] = lastGameId;
-        emit PlayerWaiting(lastGameId, bet);
         emit PlayerRegistered(lastGameId, sender);
+        emit PlayerWaiting(lastGameId, bet, sender, true);
         return gameId;
     }
 
@@ -202,7 +204,7 @@ contract Hands is BurnerManager {
         playerGame[msg.sender] = gameId;
         commitPhaseStart[gameId] = block.timestamp;
 
-        emit PlayerWaiting(gameId, games[gameId].bet);
+        emit PlayerWaiting(gameId, games[gameId].bet, msg.sender, false);
         emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
     }
 
@@ -224,14 +226,15 @@ contract Hands is BurnerManager {
         playerGame[msg.sender] = gameId;
         commitPhaseStart[gameId] = block.timestamp;
 
-        emit PlayerWaiting(gameId, games[gameId].bet);
+        emit PlayerWaiting(gameId, games[gameId].bet, msg.sender, false);
         emit PlayersMatched(gameId, games[gameId].playerA, games[gameId].playerB);
     }
 
     function cancel(uint gameId) public {
         Game storage game = games[gameId];
         address sender = getOwner(msg.sender);
-        require(game.playerA == sender && game.playerB == payable(address(0)), "Cannot cancel this game");
+        require(game.playerA == sender, "Cannot cancel this game because sender is not player A");
+        require(game.playerB == payable(address(0)), "Cannot cancel this game because player B is already registered");
 
         (bool success, ) = payable(sender).call{value: game.bet}("");
         require(success, "Transfer failed");
