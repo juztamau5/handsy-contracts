@@ -262,11 +262,11 @@ contract Hands is BurnerManager {
         _payWinner(gameId, remainingPlayer, sender);
 
         //Set removed player to address(0)
-        if (game.playerA == sender) {
-            game.playerA = payable(address(0));
-        } else {
-            game.playerB = payable(address(0));
-        }
+        // if (game.playerA == sender) {
+        //     game.playerA = payable(address(0));
+        // } else {
+        //     game.playerB = payable(address(0));
+        // }
 
         emit GameOutcome(gameId, Outcomes.Left);
 
