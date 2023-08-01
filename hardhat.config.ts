@@ -36,7 +36,7 @@ module.exports = {
     arbitrumGoerli: {
       url: "https://goerli-rollup.arbitrum.io/rpc",
       chainId: 421613,
-      accounts: [secrets.privateKeyArbitrumGoerli],
+      accounts: secrets.privateKeyArbitrumGoerli ? [secrets.privateKeyArbitrumGoerli] : [],
     },
     hardhat: {},
     // load test network details
